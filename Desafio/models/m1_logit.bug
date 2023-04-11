@@ -1,0 +1,13 @@
+
+model{
+  for (i in 1:N) {
+    y[i] ~ dbern(p[i])
+    logit(p[i]) <- beta0+beta_urban*URBAN[i] + beta_sen*SEN[i] + beta_sen*AGE[i] + beta_men*MEN[i]
+  }
+  beta0 ~ dnorm(0,100)
+  beta_urban ~ dnorm(0,100)
+  beta_sen ~ dnorm(0,100)
+  beta_age ~ dnorm(0,100)
+  beta_men ~ dnorm(0,100)
+}
+

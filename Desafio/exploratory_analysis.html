@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.335">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Análise Exploratória</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="exploratory_analysis_files/libs/clipboard/clipboard.min.js"></script>
+<script src="exploratory_analysis_files/libs/quarto-html/quarto.js"></script>
+<script src="exploratory_analysis_files/libs/quarto-html/popper.min.js"></script>
+<script src="exploratory_analysis_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="exploratory_analysis_files/libs/quarto-html/anchor.min.js"></script>
+<link href="exploratory_analysis_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="exploratory_analysis_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="exploratory_analysis_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="exploratory_analysis_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="exploratory_analysis_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Análise Exploratória</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(GGally)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Registered S3 method overwritten by 'GGally':
+  method from   
+  +.gg   ggplot2</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attaching package: 'dplyr'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from 'package:stats':
+
+    filter, lag</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tibble)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"RColorBrewer"</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(boot)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggsci)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"viridis"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Carregando pacotes exigidos: viridisLite</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(patchwork)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="amostragem-da-base-e-separação-testetreino" class="level2">
+<h2 class="anchored" data-anchor-id="amostragem-da-base-e-separação-testetreino">Amostragem da base e separação teste/treino</h2>
+<p>Essa seção faz a amostragem dos conjunto de dados e salva os arquivos resultantes em baseprincipal.csv, basetreino.csv e basetest.csv. Não precisa ser rodada para a análise exploratória.</p>
+<div class="cell">
+
+</div>
+<div class="cell">
+
+</div>
+<div class="cell">
+
+</div>
+</section>
+<section id="análise-exploratória" class="level2">
+<h2 class="anchored" data-anchor-id="análise-exploratória">Análise Exploratória</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">read.csv2</span>(<span class="st">'basetreino.csv'</span>, <span class="at">sep =</span> <span class="st">','</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  y MEN URBAN PRIVATE AGE SENIORITY
+1 1   1     0       1  71        27
+2 0   1     0       1  51         8
+3 1   0     1       1  35        14
+4 0   0     0       1  47         8
+5 0   1     0       1  77        14
+6 1   1     0       1  21         5</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>data <span class="sc">%&gt;%</span> <span class="fu">filter</span>(MEN<span class="sc">==</span><span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     y MEN URBAN PRIVATE AGE SENIORITY
+1    1   1     0       1  71        27
+2    0   1     0       1  51         8
+3    0   1     0       1  77        14
+4    1   1     0       1  21         5
+5    1   1     1       1  36        10
+6    1   1     1       1  37        13
+7    0   1     1       1  22         2
+8    0   1     1       1  60         3
+9    0   1     1       1  28         5
+10   1   1     1       1  42         5
+11   1   1     0       1  34         3
+12   0   1     1       1  38         4
+13   0   1     0       1  30         4
+14   1   1     1       1  44        19
+15   0   1     1       1  48         9
+16   0   1     0       1  49         7
+17   0   1     1       1  63         9
+18   0   1     1       1  33        14
+19   0   1     1       1  50        20
+20   0   1     0       1  82         5
+21   0   1     0       1  58        17
+22   0   1     0       1  51         2
+23   0   1     1       1  56         9
+24   0   1     0       1  68         6
+25   0   1     0       1  62        15
+26   0   1     1       1  56         3
+27   1   1     0       1  48        20
+28   1   1     0       1  46        25
+29   0   1     0       1  53        13
+30   0   1     0       1  43         4
+31   0   1     0       1  56        19
+32   1   1     0       1  37        20
+33   0   1     0       1  26         2
+34   0   1     0       0  34         9
+35   0   1     0       1  35        17
+36   0   1     0       1  38        15
+37   0   1     1       1  38        10
+38   0   1     0       1  29         2
+39   0   1     0       1  52         8
+40   1   1     0       1  45        23
+41   0   1     0       1  47         8
+42   0   1     0       1  71        21
+43   0   1     1       1  61         6
+44   1   1     0       1  53        20
+45   0   1     0       1  54         2
+46   1   1     1       1  46        18
+47   0   1     0       1  63        14
+48   0   1     0       1  35         7
+49   0   1     0       1  36        14
+50   0   1     0       1  54         7
+51   0   1     0       1  25         3
+52   0   1     0       1  50         2
+53   1   1     0       1  37        16
+54   0   1     0       1  21         3
+55   0   1     0       1  30         2
+56   1   1     1       1  43        15
+57   1   1     1       1  40        16
+58   0   1     1       1  47        13
+59   0   1     1       1  35        11
+60   0   1     0       1  54         4
+61   1   1     1       1  48         7
+62   0   1     0       1  51         5
+63   1   1     1       1  36         6
+64   1   1     1       1  51        21
+65   1   1     1       1  37        14
+66   0   1     0       1  46         5
+67   0   1     0       1  73        15
+68   0   1     1       1  49        16
+69   0   1     0       1  55        15
+70   0   1     0       1  32         7
+71   0   1     1       1  56        21
+72   1   1     0       1  46        20
+73   0   1     0       1  48        13
+74   0   1     1       1  43        11
+75   0   1     0       1  28         5
+76   0   1     0       1  59         9
+77   0   1     0       1  34        24
+78   0   1     0       1  27         4
+79   1   1     0       1  44        16
+80   1   1     1       1  22         2
+81   0   1     1       1  34         3
+82   0   1     0       1  32        10
+83   0   1     0       1  41        20
+84   0   1     1       1  50         9
+85   1   1     0       1  51        25
+86   0   1     0       1  41        14
+87   1   1     1       1  45        15
+88   0   1     0       1  38         9
+89   0   1     0       1  63         5
+90   0   1     0       1  58        17
+91   0   1     0       1  52        12
+92   1   1     0       1  50        23
+93   0   1     0       1  39        10
+94   0   1     1       1  44        14
+95   0   1     0       1  15         3
+96   1   1     1       1  35        14
+97   1   1     1       1  56        18
+98   1   1     0       1  53        30
+99   1   1     1       1  56        20
+100  0   1     0       1  52        14
+101  1   1     0       1  50        29
+102  1   1     0       1  30        16
+103  0   1     0       1  29         6
+104  0   1     1       1  35         4
+105  0   1     0       1  39        16
+106  0   1     0       1  38        14
+107  1   1     1       1  35        14
+108  0   1     1       1  42        12
+109  1   1     1       1  44        21
+110  1   1     0       1  30        11
+111  0   1     0       1  37        11
+112  0   1     0       1  62         9
+113  1   1     0       1  29        12
+114  0   1     0       1  55        23
+115  0   1     0       1  49         8
+116  1   1     0       1  54        16
+117  0   1     1       1  54         2
+118  0   1     0       1  62        12
+119  1   1     1       1  31         8
+120  0   1     0       1  41        40
+121  0   1     0       1  54         8
+122  0   1     0       1  30         5
+123  0   1     0       1  43         3
+124  1   1     0       1  35         4
+125  0   1     1       1  55        19
+126  1   1     1       1  57        16
+127  1   1     0       1  41        17
+128  0   1     0       1  44        12
+129  0   1     0       1  63        21
+130  0   1     1       1  43         6
+131  1   1     1       1  51        13
+132  1   1     1       1  34         3
+133  0   1     0       1  63        24
+134  0   1     0       1  21         2
+135  0   1     0       1  78         8
+136  1   1     1       1  63        12
+137  0   1     0       1  55        19
+138  0   1     0       1  38        16
+139  1   1     1       1  40         6
+140  0   1     0       1  37         8
+141  0   1     0       1  57        17
+142  0   1     0       1  36         7
+143  0   1     1       1  62        17
+144  0   1     0       1  67         7
+145  0   1     0       1  46        15
+146  0   1     0       1  40         7
+147  0   1     0       1  36         9
+148  1   1     1       1  37         3
+149  0   1     0       1  45         8
+150  0   1     1       1  70        18
+151  0   1     1       1  59         2
+152  1   1     0       1  36         6
+153  0   1     0       1  59        15
+154  1   1     1       1  75        18
+155  1   1     0       1  28         3
+156  0   1     0       1  74        15
+157  1   1     1       1  61        16
+158  1   1     0       1  60         6
+159  1   1     1       1  34         4
+160  0   1     0       1  41         7
+161  0   1     1       0  54        16
+162  0   1     0       1  67         3
+163  0   1     0       1  65        15
+164  1   1     1       1  42        12
+165  0   1     0       1  66        15
+166  0   1     1       1  36        10
+167  0   1     0       1  72        21
+168  0   1     0       1  46         7
+169  0   1     0       1  33        10
+170  0   1     0       1  37        19
+171  1   1     1       1  17         2
+172  0   1     1       1  65        18
+173  0   1     0       1  37         6
+174  0   1     0       1  32         9
+175  0   1     0       1  41         2
+176  0   1     0       1  52        27
+177  0   1     1       1  18         6
+178  0   1     0       1  61         6
+179  0   1     1       1  34        12
+180  0   1     0       0  27         2
+181  0   1     0       1  69        15
+182  1   1     0       1  58        21
+183  0   1     0       1  47         8
+184  0   1     0       1  64        24
+185  0   1     0       1  33        15
+186  1   1     1       1  33        11
+187  0   1     0       1  29         4
+188  1   1     1       1  30         4
+189  1   1     0       1  18         2
+190  0   1     1       1  38         7
+191  0   1     1       1  59        19
+192  0   1     0       1  53        14
+193  0   1     0       1  45        11
+194  0   1     1       1  36        15
+195  0   1     0       1  59        21
+196  0   1     0       1  58        19
+197  0   1     0       1  45        16
+198  0   1     0       1  30         6
+199  0   1     1       1  46         9
+200  0   1     0       1  34         8
+201  0   1     0       1  75        13
+202  0   1     0       1  34         6
+203  1   1     0       1  37        15
+204  1   1     0       1  43        15
+205  1   1     1       1  49         8
+206  1   1     1       1  41        16
+207  0   1     0       1  56        14
+208  0   1     0       1  51         3
+209  0   1     0       1  39         4
+210  1   1     0       1  31        12
+211  1   1     1       1  25         2
+212  0   1     0       1  34         3
+213  0   1     1       1  48        17
+214  1   1     1       1  32        14
+215  1   1     1       1  73        20
+216  0   1     0       1  33         7
+217  0   1     0       1  68        14
+218  1   1     1       1  46        12
+219  1   1     0       1  41        16
+220  0   1     1       1  44         2
+221  0   1     0       1  36        10
+222  0   1     0       1  31         7
+223  0   1     1       1  47        10
+224  1   1     1       1  48        20
+225  0   1     1       1  34        12
+226  0   1     0       1  62        21
+227  0   1     1       1  45        13
+228  0   1     0       1  43         7
+229  0   1     0       1  56         9
+230  0   1     0       1  30         6
+231  0   1     0       1  44         4
+232  1   1     1       1  71        15
+233  0   1     0       1  63        19
+234  1   1     0       1  34        13
+235  0   1     0       1  55        11
+236  0   1     0       1  70        13
+237  1   1     1       1  35         9
+238  0   1     0       1  34         2
+239  1   1     1       1  53        13
+240  0   1     1       1  48         5
+241  0   1     0       1  36         3
+242  0   1     0       1  58        22
+243  0   1     0       1  22         4
+244  0   1     1       1  54         5
+245  0   1     0       1  40         8
+246  0   1     0       1  42         2
+247  0   1     1       1  58         7
+248  0   1     0       1  50         7
+249  1   1     0       1  52        26
+250  0   1     1       1  46         6
+251  0   1     0       1  35         8
+252  0   1     1       1  65         9
+253  0   1     1       1  53         4
+254  0   1     1       1  52        14
+255  0   1     0       1  35         2
+256  0   1     1       1  49         8
+257  0   1     0       1  32         8
+258  1   1     0       1  36        12
+259  1   1     1       1  48        21
+260  0   1     0       1  55        21
+261  1   1     1       1  34         9
+262  0   1     0       1  52        14
+263  0   1     0       1  74        11
+264  0   1     0       1  38         3
+265  0   1     0       1  49        12
+266  0   1     0       1  36        12
+267  1   1     1       1  49         8
+268  0   1     0       1  37        10
+269  1   1     0       1  44        14
+270  0   1     0       1  47        10
+271  0   1     1       1  61         8
+272  0   1     0       1  41        13
+273  1   1     1       1  44        14
+274  1   1     1       1  43         7
+275  0   1     0       1  67        18
+276  1   1     1       1  47        11
+277  0   1     0       1  54         3
+278  0   1     0       1  46         8
+279  0   1     0       1  71        13
+280  0   1     1       1  41         2
+281  0   1     0       1  41        14
+282  0   1     0       1  47         3
+283  0   1     0       1  42         4
+284  0   1     0       1  67         7
+285  0   1     0       1  72        21
+286  0   1     1       0  74         3
+287  1   1     0       1  34        13
+288  0   1     0       1  52        14
+289  1   1     1       1  44        13
+290  1   1     1       1  62        24
+291  1   1     0       1  38        23
+292  0   1     1       1  37         5
+293  1   1     0       1  57         6
+294  0   1     1       1  45         9
+295  0   1     0       1  58        10
+296  0   1     0       1  47         4
+297  1   1     0       1  45        16
+298  1   1     1       1  27         2
+299  1   1     0       1  39        16
+300  1   1     0       1  29         8
+301  0   1     0       1  46        15
+302  0   1     0       1  36        15
+303  0   1     1       1  30         9
+304  0   1     0       1  29         4
+305  0   1     1       1  63         4
+306  0   1     0       1  48        25
+307  0   1     0       1  21         3
+308  0   1     0       1  55        13
+309  0   1     0       1  36         7
+310  0   1     0       1  44         3
+311  0   1     0       1  22         3
+312  0   1     1       0  29         2
+313  1   1     1       1  44        12
+314  0   1     0       1  59         2
+315  0   1     0       1  88        24
+316  0   1     0       1  51        14
+317  0   1     1       1  69        10
+318  0   1     0       1  42         3
+319  0   1     0       1  53         9
+320  0   1     0       1  61        15
+321  1   1     0       1  38         9
+322  0   1     0       1  31         2
+323  1   1     1       1  48        17
+324  0   1     0       1  44        13
+325  1   1     1       1  40        11
+326  0   1     1       1  48         4
+327  0   1     0       1  58         5
+328  0   1     0       1  35        10
+329  0   1     1       1  37         6
+330  0   1     0       1  66        27
+331  1   1     1       1  36         4
+332  0   1     0       1  38        13
+333  0   1     1       1  34        10
+334  0   1     0       1  40         4
+335  0   1     0       1  59         2
+336  0   1     0       1  76         7
+337  0   1     1       1  55         5
+338  1   1     1       1  63        20
+339  0   1     0       1  63        15
+340  0   1     0       0  37        13
+341  0   1     0       1  48         3
+342  1   1     0       1  38        15
+343  0   1     0       1  51         3
+344  0   1     0       1  40        12
+345  0   1     0       1  55         4
+346  0   1     1       1  43         2
+347  1   1     0       1  38        15
+348  1   1     0       1  66        28
+349  1   1     0       1  38        14
+350  1   1     0       1  70        32
+351  1   1     1       1  38        15
+352  0   1     0       1  35         7
+353  0   1     0       1  59         3
+354  0   1     0       1  54        15
+355  0   1     0       1  35        18
+356  0   1     0       1  60         2
+357  1   1     0       1  36         2
+358  0   1     1       1  58        16
+359  0   1     0       1  64         6
+360  0   1     0       1  35         5
+361  0   1     0       1  36         3
+362  0   1     1       1  31         4
+363  0   1     0       1  55        18
+364  0   1     1       1  31        15
+365  1   1     0       1  34        13
+366  1   1     0       1  18         3
+367  0   1     0       1  55        10
+368  1   1     1       1  34         9
+369  1   1     1       1  22         4
+370  1   1     0       1  50        23
+371  0   1     0       1  71        20
+372  0   1     0       1  38        13
+373  1   1     1       1  59        20
+374  0   1     1       1  47        15
+375  1   1     1       1  30         2
+376  0   1     0       1  45         6
+377  1   1     0       1  22         3
+378  1   1     0       1  35        11
+379  0   1     0       1  42         8
+380  0   1     0       1  43        13
+381  0   1     0       1  50         6
+382  0   1     0       0  58        14
+383  0   1     0       1  41         7
+384  1   1     0       1  67        24
+385  0   1     1       1  43        13
+386  0   1     0       1  51        15
+387  0   1     0       1  63        13
+388  1   1     1       1  37        11
+389  0   1     1       1  41         9
+390  0   1     0       1  66        18
+391  1   1     1       1  31         3
+392  0   1     1       1  48         6
+393  1   1     1       1  37         9
+394  0   1     0       1  38        12
+395  1   1     0       1  25        18
+396  1   1     0       1  85        35
+397  0   1     0       1  66        14
+398  1   1     0       1  31        20
+399  0   1     0       1  43         4
+400  0   1     0       1  45        23
+401  0   1     0       1  24         4
+402  1   1     1       1  45         6
+403  1   1     1       1  43        17
+404  1   1     1       1  65        13
+405  0   1     0       1  53         7
+406  1   1     0       1  44        19
+407  0   1     1       1  71        19
+408  0   1     1       1  42         9
+409  0   1     0       1  33         7
+410  0   1     0       1  41        13
+411  0   1     0       1  65         7
+412  0   1     0       1  64         8
+413  1   1     1       1  49        18
+414  1   1     1       1  51        17
+415  0   1     0       1  41        24
+416  0   1     0       1  41         8
+417  0   1     0       1  74        14
+418  0   1     0       1  67        11
+419  0   1     0       1  38         4
+420  0   1     0       1  33         7
+421  0   1     1       1  74        12
+422  0   1     0       1  58         5
+423  1   1     1       1  67        15
+424  0   1     0       1  48         9
+425  0   1     0       1  53        14
+426  1   1     0       1  59        25
+427  0   1     0       1  71         8
+428  1   1     1       1  36         9
+429  1   1     1       1  47        16
+430  1   1     0       1  44        20
+431  1   1     1       1  48         5
+432  1   1     1       1  56        26
+433  0   1     1       1  44        21
+434  1   1     1       1  33        10
+435  0   1     0       1  70        14
+436  1   1     1       1  44        10
+437  1   1     0       1  27        12
+438  0   1     1       1  70        14
+439  0   1     0       1  22         3
+440  0   1     0       1  38         8
+441  0   1     0       1  57        18
+442  0   1     0       1  73        15
+443  1   1     0       1  51        23
+444  0   1     1       1  53         4
+445  1   1     0       1  32         8
+446  1   1     0       1  52        11
+447  0   1     1       1  43        14
+448  0   1     0       1  37        28
+449  1   1     1       1  25         3
+450  0   1     1       1  46        14
+451  0   1     0       1  48         3
+452  0   1     0       1  53         7
+453  0   1     0       1  30         4
+454  0   1     0       1  60        11
+455  0   1     0       1  68         7
+456  1   1     1       1  68        15
+457  1   1     0       1  46        16
+458  0   1     0       1  58        26
+459  0   1     0       1  33         3
+460  1   1     1       1  54        18
+461  1   1     1       1  34         8
+462  0   1     0       1  58        17
+463  1   1     1       1  42        14
+464  1   1     0       1  49        18
+465  1   1     1       1  50         8
+466  0   1     0       1  39        14
+467  1   1     1       1  61        28
+468  1   1     1       1  46         9
+469  1   1     0       1  37        15
+470  0   1     0       1  50         7
+471  0   1     1       1  59        21
+472  0   1     1       1  65         2
+473  0   1     0       1  67        11
+474  0   1     1       0  28         7
+475  1   1     1       1  47        10
+476  1   1     0       1  67        26
+477  0   1     0       1  36         3
+478  0   1     0       1  59         2
+479  1   1     0       1  47        18
+480  0   1     0       1  34        14
+481  0   1     0       1  49         6
+482  0   1     0       1  44        11
+483  0   1     1       1  46        21
+484  0   1     0       1  66        15
+485  0   1     1       1  49         9
+486  0   1     1       1  29        13
+487  1   1     0       1  32        12
+488  0   1     0       1  45        11
+489  0   1     0       1  60         7
+490  0   1     1       1  29         4
+491  1   1     1       1  38        14
+492  0   1     0       1  46         3
+493  1   1     0       1  50        19
+494  0   1     1       1  88        18
+495  0   1     0       1  35         8
+496  0   1     0       1  61         7
+497  0   1     0       1  53         3
+498  0   1     1       1  67        19
+499  0   1     1       1  60         5
+500  1   1     0       1  56        20
+501  0   1     0       1  39        10
+502  1   1     1       1  39         5
+503  0   1     0       1  77         8
+504  0   1     0       1  40        13
+505  1   1     0       1  33         9
+506  0   1     0       1  43         8
+507  0   1     1       1  55         5
+508  0   1     0       1  55        16
+509  0   1     0       1  27         5
+510  1   1     0       1  35         9
+511  0   1     1       1  36        11
+512  0   1     0       1  53        15
+513  0   1     0       1  45         2
+514  0   1     0       1  63        20
+515  0   1     0       1  54         4
+516  0   1     0       1  75        11
+517  0   1     1       1  51         2
+518  0   1     0       1  56         6
+519  0   1     0       1  74         3
+520  1   1     0       1  50         9
+521  0   1     1       1  38         4
+522  0   1     0       1  45         6
+523  1   1     0       1  60        32
+524  0   1     1       1  34         9
+525  1   1     0       1  27        27
+526  0   1     0       1  34        13
+527  0   1     0       1  38         2
+528  1   1     1       1  47         8
+529  1   1     1       1  30         2
+530  0   1     1       1  38         4
+531  1   1     1       1  36        13
+532  0   1     0       1  47         7
+533  0   1     1       1  46         3
+534  0   1     1       1  60         4
+535  0   1     0       1  58         6
+536  0   1     1       1  61         2
+537  0   1     0       1  35        11
+538  0   1     0       1  61         2
+539  0   1     0       1  60        17
+540  0   1     0       1  60        17
+541  0   1     0       1  70         8
+542  0   1     0       1  65        10
+543  0   1     0       1  61         9
+544  1   1     1       1  23         2
+545  1   1     1       1  41         8
+546  1   1     1       1  44        16
+547  0   1     0       1  48        10
+548  1   1     1       1  41        11
+549  0   1     0       1  52         7
+550  0   1     0       1  32         6
+551  0   1     1       1  56         6
+552  1   1     0       1  43        18
+553  1   1     1       1  34         2
+554  0   1     0       1  66         6
+555  0   1     0       1  54         7
+556  1   1     0       1  73        29
+557  0   1     0       1  37         8
+558  0   1     0       1  47        11
+559  1   1     1       1  67        14
+560  1   1     1       1  45        11
+561  0   1     0       1  38        13
+562  1   1     1       1  30        17
+563  0   1     0       1  44         3
+564  1   1     0       1  62        28
+565  0   1     0       1  20         3
+566  0   1     0       1  48         4
+567  0   1     0       1  47         9
+568  0   1     0       1  61        19
+569  0   1     0       1  51         6
+570  0   1     0       1  50        14
+571  1   1     0       1  56         2
+572  0   1     0       1  23         2
+573  0   1     0       1  57        12
+574  0   1     0       1  67        23
+575  1   1     0       1  32        17
+576  0   1     1       1  32         4
+577  1   1     1       1  58        18
+578  1   1     1       1  29         3
+579  0   1     1       0  61        10
+580  0   1     0       1  51        13
+581  0   1     1       1  46         2
+582  0   1     0       1  43        14
+583  1   1     0       1  57        23
+584  0   1     0       1  49        19
+585  1   1     0       1  51         2
+586  1   1     0       1  43        15
+587  1   1     1       1  44         7
+588  0   1     0       1  24         3
+589  0   1     0       1  22         9
+590  0   1     0       1  49        11
+591  0   1     0       1  71        12
+592  0   1     0       1  39         2
+593  0   1     1       1  53         8
+594  0   1     0       1  72        12
+595  0   1     1       1  39         7
+596  0   1     0       1  54        11
+597  0   1     0       1  56        25
+598  0   1     0       1  63        15
+599  0   1     0       1  72        19
+600  0   1     0       1  51        15
+601  1   1     1       1  44        19
+602  0   1     1       1  26         3
+603  1   1     0       1  22         7
+604  0   1     0       1  46        22
+605  0   1     0       1  57         9
+606  0   1     0       1  72         2
+607  1   1     1       1  73        19
+608  1   1     1       1  60         8
+609  0   1     0       1  71         6
+610  0   1     0       1  39        10
+611  0   1     0       1  65         9
+612  0   1     0       1  36         6
+613  0   1     1       1  53         9
+614  1   1     0       1  46        13
+615  0   1     0       1  31         5
+616  0   1     0       1  43        11
+617  1   1     0       1  46        18
+618  1   1     0       1  42        16
+619  1   1     0       1  56        28
+620  0   1     0       1  51         3
+621  0   1     0       1  41         3
+622  1   1     1       1  31         5
+623  0   1     0       1  74        14
+624  0   1     0       1  58        17
+625  1   1     1       1  46         8
+626  0   1     0       1  40         3
+627  1   1     1       1  34         9
+628  0   1     0       1  34         7
+629  0   1     0       1  65        18
+630  1   1     1       1  36         9
+631  0   1     0       1  78        25
+632  0   1     0       1  71         6
+633  1   1     0       1  46        12
+634  1   1     1       1  29         5
+635  0   1     0       1  35         6
+636  1   1     1       1  55        24
+637  0   1     0       1  41        13
+638  0   1     0       1  75        13
+639  0   1     0       1  56        13
+640  1   1     1       1  27         5
+641  0   1     1       1  53        14
+642  0   1     0       1  68        19
+643  0   1     0       1  28         2
+644  0   1     0       1  50         3
+645  0   1     0       1  54         5
+646  0   1     1       1  37         6
+647  0   1     1       1  67        14
+648  0   1     1       1  71        12
+649  0   1     1       1  23         3
+650  0   1     0       1  63         5
+651  1   1     0       1  40        22
+652  0   1     1       1  55        13
+653  0   1     0       1  29         4
+654  0   1     0       1  26         3
+655  0   1     0       1  61        20
+656  0   1     1       1  57        16
+657  0   1     0       1  64        18
+658  0   1     0       1  67         3
+659  0   1     0       1  62         7
+660  0   1     0       1  61        20
+661  0   1     0       1  60         4
+662  0   1     0       1  47         3
+663  0   1     0       1  26         7
+664  0   1     0       1  58        18
+665  1   1     0       1  70        26
+666  1   1     0       1  39        15
+667  0   1     0       1  41         3
+668  0   1     0       1  44         4
+669  0   1     0       1  70         2
+670  0   1     0       1  66         7
+671  0   1     0       1  38        13
+672  0   1     0       1  36         8
+673  0   1     0       1  62        12
+674  1   1     1       1  63        15
+675  0   1     0       1  65        11
+676  0   1     1       1  37         7
+677  1   1     1       1  47        17
+678  1   1     0       1  26         8
+679  0   1     0       1  42        18
+680  0   1     0       1  63         6
+681  0   1     1       1  38         2
+682  0   1     0       1  23         4
+683  0   1     1       1  66         4
+684  0   1     0       1  31         5
+685  0   1     0       1  42         7
+686  0   1     0       1  51        18
+687  0   1     0       1  31         2
+688  0   1     1       1  52         2
+689  0   1     0       1  38        10
+690  0   1     0       1  58         4
+691  0   1     0       1  64        15
+692  0   1     0       1  72        14
+693  0   1     1       1  80         6
+694  0   1     0       1  51        15
+695  0   1     0       1  56        15
+696  0   1     0       1  47         4
+697  0   1     0       1  36         8
+698  0   1     0       1  42         5
+699  0   1     1       1  38        12
+700  1   1     0       1  60         8
+701  0   1     0       1  27         2
+702  0   1     1       1  36         2
+703  0   1     0       1  69         5
+704  0   1     0       1  54        14
+705  1   1     0       1  29         8
+706  0   1     0       1  43        12
+707  0   1     0       1  73        26
+708  0   1     0       1  22         4
+709  0   1     0       1  57         3
+710  0   1     1       1  39        14
+711  0   1     1       1  60        13
+712  0   1     0       1  44        15
+713  0   1     0       1  61         5
+714  0   1     0       1  23         4
+715  1   1     1       1  43        22
+716  1   1     1       1  28         2
+717  0   1     0       1  33         4
+718  0   1     1       1  61        14
+719  0   1     0       1  54        13
+720  0   1     0       1  49        14
+721  0   1     1       1  71         2
+722  1   1     1       1  26         2
+723  1   1     0       1  34        10
+724  1   1     1       1  27         5
+725  0   1     0       1  30         4
+726  0   1     1       1  26         5
+727  1   1     1       1  56        13
+728  1   1     1       1  29         6
+729  0   1     1       1  63        11
+730  1   1     0       1  42         5
+731  0   1     1       1  52        14
+732  0   1     0       1  59        15
+733  0   1     1       1  37        16
+734  0   1     1       1  44        13
+735  1   1     0       1  70        25
+736  0   1     0       1  44         2
+737  1   1     1       1  35         5
+738  0   1     0       1  34         8
+739  1   1     0       1  51        19
+740  1   1     1       1  35         2
+741  1   1     1       1  47        13
+742  0   1     0       1  70         3
+743  1   1     1       1  57        24
+744  1   1     1       1  53        16
+745  0   1     1       1  51         5
+746  0   1     1       1  44        12
+747  0   1     0       1  44        18
+748  0   1     0       1  40         7
+749  1   1     0       1  48        20
+750  0   1     0       1  36        12
+751  0   1     0       1  44        15
+752  1   1     0       1  34         9
+753  1   1     0       1  35        15
+754  0   1     0       1  58        27
+755  0   1     0       1  51         4
+756  0   1     0       1  58         4
+757  0   1     1       1  60        19
+758  0   1     0       1  65         8
+759  1   1     1       1  58         6
+760  0   1     0       1  68        27
+761  0   1     1       1  56         2
+762  0   1     0       1  54         9
+763  0   1     0       1  69        12
+764  0   1     0       1  73        24
+765  1   1     1       1  35         6
+766  0   1     1       1  42         5
+767  1   1     0       1  48        24
+768  1   1     0       1  50        12
+769  0   1     0       1  66        15
+770  0   1     0       1  33         2
+771  0   1     0       1  58        14
+772  1   1     1       1  38        14
+773  0   1     0       1  47        12
+774  1   1     1       1  45         9
+775  0   1     0       1  38         6
+776  0   1     0       1  48        14
+777  0   1     0       1  26         3
+778  0   1     1       1  58         5
+779  1   1     1       1  52        11
+780  1   1     1       1  19         3
+781  0   1     0       1  34        16
+782  0   1     1       1  35        16
+783  1   1     0       1  46        21
+784  1   1     0       1  61        23
+785  0   1     0       1  35         5
+786  0   1     0       1  45        20
+787  0   1     0       1  39         9
+788  0   1     0       1  44         2
+789  0   1     0       1  24         4
+790  0   1     1       1  36        12
+791  0   1     0       1  64        15
+792  0   1     0       1  43        15
+793  0   1     0       1  42         8
+794  0   1     0       1  62         8
+795  0   1     1       1  51         4
+796  0   1     0       1  39        21
+797  0   1     0       1  66         2
+798  0   1     0       1  38         4
+799  1   1     1       1  45        14
+800  0   1     1       1  39        14
+801  0   1     0       1  66        13
+802  0   1     0       1  52        12
+803  1   1     0       1  58        18
+804  0   1     0       1  33         6
+805  1   1     0       1  52        24
+806  0   1     0       1  55         5
+807  0   1     1       1  60         9
+808  0   1     0       1  47         4
+809  1   1     1       1  49        15
+810  0   1     0       1  61         4
+811  0   1     0       1  71        21
+812  0   1     0       0  72        10
+813  0   1     1       1  49        23
+814  1   1     0       1  41        17
+815  0   1     1       1  68        10
+816  1   1     0       1  37        14
+817  0   1     0       1  33         7
+818  1   1     1       1  49        16
+819  0   1     0       1  35         4
+820  0   1     0       1  62        16
+821  1   1     0       1  29         3
+822  1   1     1       1  47        21
+823  1   1     0       1  41        20
+824  0   1     0       1  51         3
+825  0   1     0       1  54        12
+826  0   1     0       1  31         2
+827  0   1     1       1  65        15
+828  0   1     1       1  40         6
+829  0   1     0       1  57        12
+830  0   1     1       1  32         4
+831  1   1     0       1  47        12
+832  1   1     1       1  39        13
+833  0   1     0       1  69        21
+834  1   1     1       1  63         2
+835  1   1     0       1  32        11
+836  0   1     1       1  39         6
+837  1   1     0       1  33        13
+838  1   1     0       1  37        10
+839  1   1     1       1  63        16
+840  0   1     0       1  67        15
+841  0   1     1       1  25         2
+842  0   1     1       1  41         9
+843  0   1     0       1  73        15
+844  1   1     1       1  42         8
+845  0   1     0       1  52        20
+846  0   1     0       1  50         2
+847  0   1     0       1  34         2
+848  1   1     0       1  36        13
+849  1   1     0       1  40        19
+850  0   1     0       1  58        20
+851  1   1     0       1  56         3
+852  0   1     0       1  34         2
+853  0   1     0       1  41        14
+854  1   1     1       1  68        17
+855  0   1     0       1  60        10
+856  1   1     1       1  51         9
+857  0   1     0       1  40        16
+858  0   1     0       1  41         4
+859  1   1     0       1  51        22
+860  0   1     0       1  40         5
+861  1   1     1       1  37         5
+862  1   1     1       1  29         9
+863  0   1     1       1  44         9
+864  0   1     1       1  42         3
+865  1   1     0       1  38        14
+866  0   1     1       1  51        18
+867  1   1     1       1  44        18
+868  1   1     1       1  45        21
+869  1   1     0       1  74        28
+870  0   1     0       1  69         9
+871  1   1     1       1  61        15
+872  0   1     0       1  45         7
+873  0   1     0       1  65        18
+874  1   1     0       1  39        17
+875  1   1     1       1  42         9
+876  0   1     1       1  47         2
+877  0   1     0       1  31         5
+878  0   1     0       1  39         8
+879  1   1     1       1  42         6
+880  1   1     0       1  52        20
+881  0   1     0       1  78        12
+882  0   1     0       1  34         2
+883  0   1     1       1  52        11
+884  0   1     0       1  18         2
+885  1   1     1       1  56        14
+886  0   1     0       1  26         9
+887  0   1     1       1  37        12
+888  0   1     0       1  77        11
+889  0   1     0       1  52        10
+890  1   1     1       1  22         4
+891  1   1     1       1  41        21
+892  0   1     0       1  39        13
+893  1   1     0       1  52        13
+894  1   1     1       1  48        16
+895  1   1     0       1  42        19
+896  0   1     0       1  48        16
+897  1   1     1       1  21         7
+898  0   1     0       0  24         4
+899  0   1     0       1  65         4
+900  0   1     0       1  51        14
+901  1   1     1       1  34         3
+902  1   1     1       1  64        15
+903  0   1     0       1  46        19
+904  0   1     0       1  35         5
+905  1   1     0       1  38        20
+906  0   1     0       1  36         3
+907  0   1     0       1  51        12
+908  0   1     0       1  62         7
+909  0   1     0       1  49         7
+910  0   1     1       1  72        16
+911  0   1     0       1  61        22
+912  0   1     0       1  33         6
+913  1   1     0       1  34        11
+914  1   1     0       1  40        10
+915  1   1     1       1  82        20
+916  0   1     0       1  77        18
+917  0   1     0       1  51         2
+918  0   1     0       1  70        11
+919  0   1     0       1  48        21
+920  0   1     0       1  75        20
+921  0   1     0       1  35         8
+922  1   1     1       1  35        11
+923  1   1     1       1  37        10
+924  1   1     1       1  37         4
+925  0   1     0       1  56         9
+926  0   1     1       1  71         3
+927  1   1     1       1  44        12
+928  1   1     1       1  71        20
+929  0   1     1       0  20         2
+930  0   1     1       1  40         9
+931  1   1     1       1  39         2
+932  0   1     0       1  62        36
+933  0   1     1       1  75         9
+934  0   1     0       1  65         5
+935  0   1     0       1  69        16
+936  1   1     0       1  58        21
+937  1   1     1       1  62        15
+938  0   1     0       1  50         7
+939  1   1     1       1  54        14
+940  0   1     0       1  46        10
+941  0   1     0       1  51        16
+942  0   1     0       1  50        14
+943  0   1     1       1  32         2
+944  0   1     0       1  36        14
+945  0   1     0       1  82        20
+946  0   1     0       1  34         3
+947  0   1     0       1  61        15
+948  1   1     1       1  57        26
+949  0   1     0       1  69         2
+950  0   1     0       1  56         6
+951  0   1     0       1  52        21
+952  1   1     1       1  50         8
+953  0   1     0       1  35        14
+954  1   1     0       1  36        21
+955  0   1     0       1  52         8
+956  0   1     0       1  47        11
+957  0   1     0       1  45         3
+958  0   1     1       1  64        11
+959  0   1     0       1  35         4
+960  1   1     0       1  31        15
+961  1   1     1       1  45         8
+962  1   1     0       1  52        13
+963  1   1     1       1  52         9
+964  0   1     0       1  50         6
+965  0   1     0       1  44        18
+966  1   1     0       1  23         5
+967  0   1     0       1  44        15
+968  0   1     0       1  54         9
+969  0   1     0       1  31         3
+970  0   1     0       1  27        16
+971  0   1     1       1  44        22
+972  0   1     0       1  48        15
+973  0   1     0       1  65         7
+974  0   1     1       1  38        14
+975  0   1     0       1  59        20
+976  0   1     0       1  42         9
+977  0   1     0       1  68        13
+978  0   1     0       1  57        16
+979  1   1     0       1  37        14
+980  0   1     0       1  55        19
+981  0   1     0       1  57         6
+982  1   1     0       1  27         8
+983  0   1     0       1  72        11
+984  0   1     1       1  33         4
+985  1   1     1       1  60        31
+986  0   1     0       1  64        16
+987  0   1     0       1  58        20
+988  1   1     0       1  39        15
+989  0   1     0       1  47         7
+990  1   1     0       1  50        20
+991  0   1     0       1  50         3
+992  0   1     1       1  41        13
+993  0   1     1       1  41         2
+994  0   1     1       1  34         2
+995  0   1     1       1  60        18
+996  0   1     1       1  45        17
+997  0   1     1       1  46         5
+998  0   1     0       1  39        12
+999  1   1     1       1  60        17
+1000 0   1     1       1  37         2
+1001 0   1     0       1  35         9
+1002 0   1     0       1  37        14
+1003 0   1     0       1  72         9
+1004 1   1     1       1  38         6
+1005 0   1     1       1  49         2
+1006 0   1     0       1  51        18
+1007 0   1     1       1  63        20
+1008 0   1     0       1  46         9
+1009 0   1     1       1  50        22
+1010 1   1     0       1  41        19
+1011 1   1     0       1  33        16
+1012 1   1     0       1  63        35
+1013 0   1     1       1  41        16
+1014 0   1     0       1  32         7
+1015 0   1     0       1  29         7
+1016 1   1     1       1  32         9
+1017 0   1     0       1  55        23
+1018 0   1     0       1  43        17
+1019 0   1     0       1  43        20
+1020 0   1     0       1  76        11
+1021 1   1     0       1  45        15
+1022 0   1     0       1  43         7
+1023 0   1     0       1  61        15
+1024 1   1     0       1  32        14
+1025 0   1     0       1  28         5
+1026 0   1     0       1  62        21
+1027 1   1     0       1  36        14
+1028 0   1     0       1  54        14
+1029 0   1     0       1  70        17
+1030 1   1     1       1  47        25
+1031 1   1     0       1  57        20
+1032 0   1     1       1  33         6
+1033 1   1     0       1  26         6
+1034 0   1     1       1  58         4
+1035 0   1     0       1  38         4
+1036 1   1     1       1  35        10
+1037 0   1     0       1  53         5
+1038 1   1     0       1  31        11
+1039 0   1     0       1  30         3
+1040 0   1     0       1  62        14
+1041 0   1     0       1  30         8
+1042 0   1     0       1  65        14
+1043 0   1     0       1  33         8
+1044 1   1     1       1  71        18
+1045 1   1     1       1  27         5
+1046 0   1     0       1  44        15
+1047 1   1     0       1  39        17
+1048 1   1     1       1  51        14
+1049 1   1     0       1  65         3</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>hist_men <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(data <span class="sc">%&gt;%</span> <span class="fu">count</span>(y, MEN) <span class="sc">%&gt;%</span>    </span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>         <span class="fu">mutate</span>(<span class="at">pct=</span>n<span class="sc">/</span><span class="fu">sum</span>(n)),</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>       <span class="fu">aes</span>(<span class="fu">as.factor</span>(y), n, <span class="at">fill=</span><span class="fu">as.factor</span>(MEN))) <span class="sc">+</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">stat=</span><span class="st">"identity"</span>) <span class="sc">+</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">label=</span><span class="fu">paste0</span>(<span class="fu">sprintf</span>(<span class="st">"%1.1f"</span>, pct<span class="sc">*</span><span class="dv">100</span>),<span class="st">"%"</span>)), <span class="at">position=</span><span class="fu">position_stack</span>(<span class="at">vjust=</span><span class="fl">0.5</span>)) <span class="sc">+</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="fu">scale_fill_manual</span>(<span class="fu">guide_legend</span>(<span class="at">title=</span><span class="st">"Sexo"</span>), <span class="at">values =</span> <span class="fu">c</span>(<span class="st">"#D95F02"</span>, <span class="st">"#1B9E77"</span>),<span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"Feminino"</span>,<span class="st">"Masculino"</span>)) <span class="sc">+</span> </span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">'Seguro'</span>, <span class="at">y =</span> <span class="st">'Frequência Absoluta'</span>, <span class="at">title =</span> <span class="st">"Distribuição do seguro"</span>)</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>hist_men</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="exploratory_analysis_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>hist_urban<span class="ot">&lt;-</span> <span class="fu">ggplot</span>(data <span class="sc">%&gt;%</span> <span class="fu">count</span>(y, URBAN) <span class="sc">%&gt;%</span>    </span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>         <span class="fu">mutate</span>(<span class="at">pct=</span>n<span class="sc">/</span><span class="fu">sum</span>(n)),</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>       <span class="fu">aes</span>(<span class="fu">as.factor</span>(y), n, <span class="at">fill=</span><span class="fu">as.factor</span>(URBAN))) <span class="sc">+</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">stat=</span><span class="st">"identity"</span>) <span class="sc">+</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">label=</span><span class="fu">paste0</span>(<span class="fu">sprintf</span>(<span class="st">"%1.1f"</span>, pct<span class="sc">*</span><span class="dv">100</span>),<span class="st">"%"</span>)), <span class="at">position=</span><span class="fu">position_stack</span>(<span class="at">vjust=</span><span class="fl">0.5</span>)) <span class="sc">+</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="fu">scale_fill_manual</span>(<span class="fu">guide_legend</span>(<span class="at">title=</span><span class="st">"Região"</span>), <span class="at">values =</span> <span class="fu">c</span>(<span class="st">"#66A61E"</span>, <span class="st">"#666666"</span>), <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"Não Urbano"</span>,<span class="st">"Urbano"</span>)) <span class="sc">+</span> </span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">'Seguro'</span>, <span class="at">y =</span> <span class="st">'Frequência Absoluta'</span>, <span class="at">title =</span> <span class="st">"Distribuição do seguro"</span>)</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>hist_urban</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="exploratory_analysis_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>hist_private<span class="ot">&lt;-</span> <span class="fu">ggplot</span>(data <span class="sc">%&gt;%</span> <span class="fu">count</span>(y, PRIVATE) <span class="sc">%&gt;%</span>    </span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>         <span class="fu">mutate</span>(<span class="at">pct=</span>n<span class="sc">/</span><span class="fu">sum</span>(n)),</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>       <span class="fu">aes</span>(<span class="fu">as.factor</span>(y), n, <span class="at">fill=</span><span class="fu">as.factor</span>(PRIVATE))) <span class="sc">+</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_bar</span>(<span class="at">stat=</span><span class="st">"identity"</span>) <span class="sc">+</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">label=</span><span class="fu">paste0</span>(<span class="fu">sprintf</span>(<span class="st">"%1.1f"</span>, pct<span class="sc">*</span><span class="dv">100</span>),<span class="st">"%"</span>)), <span class="at">position=</span><span class="fu">position_stack</span>(<span class="at">vjust=</span><span class="fl">0.5</span>)) <span class="sc">+</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="fu">scale_fill_manual</span>(<span class="fu">guide_legend</span>(<span class="at">title=</span><span class="st">"Privado"</span>), <span class="at">values =</span> <span class="fu">c</span>(<span class="st">"#7570B3"</span>, <span class="st">"#E7298A"</span>), <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"Não Privado"</span>,<span class="st">"Privado"</span>)) <span class="sc">+</span> </span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">'Seguro'</span>, <span class="at">y =</span> <span class="st">'Frequência Absoluta'</span>, <span class="at">title =</span> <span class="st">"Distribuição do seguro"</span>)</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>hist_private</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="exploratory_analysis_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co">#patch_hist &lt;- (hist_men|hist_urban)/hist_private</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="co">#patch_hist</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="co">#ggsave("graphics/patch_hist.png", patch_hist , width = 12, height = 6, device='png', limitsize = FALSE, dpi= 500, units = "in")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>scatter_age <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(data, <span class="fu">aes</span>(<span class="at">y=</span>y,</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>                <span class="at">x=</span>AGE, <span class="at">color =</span> <span class="fu">as.factor</span>(MEN)), <span class="at">pch =</span> <span class="dv">21</span>) <span class="sc">+</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="fu">geom_point</span>(<span class="at">position=</span><span class="st">"identity"</span>, <span class="at">alpha=</span><span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="fu">ylab</span>(<span class="st">"Seguro"</span>) <span class="sc">+</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="fu">xlab</span>(<span class="st">"Idade"</span>) <span class="sc">+</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a><span class="fu">ggtitle</span>(<span class="st">"Distribuição das idades"</span>) <span class="sc">+</span> </span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="fu">scale_color_manual</span>(<span class="fu">guide_legend</span>(<span class="at">title=</span><span class="st">"Sexo"</span>), <span class="at">values =</span>  <span class="fu">c</span>(<span class="st">"#D95F02"</span>, <span class="st">"#1B9E77"</span>), <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"Feminino"</span>, <span class="st">"Masculino"</span>))</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>scatter_urban <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(data, <span class="fu">aes</span>(<span class="at">y=</span>y,</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>                <span class="at">x=</span>AGE, <span class="at">color =</span> <span class="fu">as.factor</span>(URBAN)), <span class="at">pch =</span> <span class="dv">21</span>) <span class="sc">+</span></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a><span class="fu">geom_point</span>(<span class="at">position=</span><span class="st">"identity"</span>, <span class="at">alpha=</span><span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="fu">ylab</span>(<span class="st">"Seguro"</span>) <span class="sc">+</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a><span class="fu">xlab</span>(<span class="st">"Idade"</span>) <span class="sc">+</span></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a><span class="fu">ggtitle</span>(<span class="st">"Distribuição das idades"</span>) <span class="sc">+</span> </span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a><span class="fu">scale_color_manual</span>(<span class="fu">guide_legend</span>(<span class="at">title=</span><span class="st">"Região"</span>), <span class="at">values =</span> <span class="fu">c</span>(<span class="st">"#66A61E"</span>, <span class="st">"#666666"</span>), <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"Não Urbano"</span>,<span class="st">"Urbano"</span>)) </span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>scatter_private<span class="ot">&lt;-</span> <span class="fu">ggplot</span>(data, <span class="fu">aes</span>(<span class="at">y=</span>y,</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>                <span class="at">x=</span>AGE, <span class="at">color =</span> <span class="fu">as.factor</span>(PRIVATE)), <span class="at">pch =</span> <span class="dv">21</span>) <span class="sc">+</span></span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a><span class="fu">geom_point</span>(<span class="at">position=</span><span class="st">"identity"</span>, <span class="at">alpha=</span><span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a><span class="fu">ylab</span>(<span class="st">"Seguro"</span>) <span class="sc">+</span></span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a><span class="fu">xlab</span>(<span class="st">"Idade"</span>) <span class="sc">+</span></span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a><span class="fu">ggtitle</span>(<span class="st">"Distribuição das idades"</span>) <span class="sc">+</span> </span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a><span class="fu">scale_color_manual</span>(<span class="fu">guide_legend</span>(<span class="at">title=</span><span class="st">"Privado"</span>), <span class="at">values =</span> <span class="fu">c</span>(<span class="st">"#7570B3"</span>, <span class="st">"#E7298A"</span>), <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"Não Privado"</span>,<span class="st">"Privado"</span>))</span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a>patch_g3g4 <span class="ot">&lt;-</span> scatter_age<span class="sc">/</span>scatter_urban<span class="sc">/</span>scatter_private</span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a>patch_g3g4</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="exploratory_analysis_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co">#library("scales")</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="co">#brewer.pal(n = 8, name = "Dark2")</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a> <span class="co">#"#1B9E77" "#D95F02" "#7570B3" "#E7298A" "#66A61E" "#E6AB02"</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="co">#"#A6761D" "#666666"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

@@ -1,0 +1,147 @@
+---
+title: "Análise Exploratória"
+format: html
+editor: visual
+---
+
+```{r}
+library(ggplot2)
+library(GGally)
+library(dplyr)
+library(tibble)
+library("RColorBrewer")
+library(boot)
+```
+
+## Amostragem da base e separação teste/treino
+
+Essa seção faz a amostragem dos conjunto de dados e salva os arquivos resultantes em baseprincipal.csv, basetreino.csv e basetest.csv. Não precisa ser rodada para a análise exploratória.
+
+```{r}
+data <- read.csv2('coverageX.txt', sep = '\t')
+data
+```
+
+```{r}
+# 
+set.seed(10727865)
+sampled_df <- sample_n(data, 2000)
+#write.csv(sampled_df,'baseprincipal.csv', sep = '/t', row.names = F)
+
+#sampled_df <- data.frame(sampled_df)
+
+sampled_df[c(1,2),]
+```
+
+```{r}
+typeof(as.vector(train_idx))
+```
+
+```{r}
+train_idx <- caret::createDataPartition(sampled_df$y, p =0.7, list = FALSE)
+
+train_df <- sampled_df[train_idx,]
+test_df <- sampled_df[-train_idx,]
+
+#write.csv(train_df,'basetreino.csv', sep = '/t', row.names = F)
+
+#write.csv(test_df,'baseteste.csv', sep = '/t', row.names = F)
+
+```
+
+## Análise Exploratória
+
+```{r}
+data <- read.csv2('basetreino.csv', sep = ',')
+head(data)
+```
+
+```{r}
+data %>% filter(MEN==1)
+```
+
+```{r}
+library(ggsci)
+library("viridis")
+
+
+hist_men <- ggplot(data %>% count(y, MEN) %>%    
+         mutate(pct=n/sum(n)),
+       aes(as.factor(y), n, fill=as.factor(MEN))) +
+  geom_bar(stat="identity") +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
+scale_fill_manual(guide_legend(title="Sexo"), values = c("#D95F02", "#1B9E77"),labels = c("Feminino","Masculino")) + 
+  labs(x = 'Seguro', y = 'Frequência Absoluta', title = "Distribuição do seguro")
+
+
+
+
+```
+
+```{r}
+hist_urban<- ggplot(data %>% count(y, URBAN) %>%    
+         mutate(pct=n/sum(n)),
+       aes(as.factor(y), n, fill=as.factor(URBAN))) +
+  geom_bar(stat="identity") +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
+scale_fill_manual(guide_legend(title="Região"), values = c("#66A61E", "#666666"), labels = c("Não Urbano","Urbano")) + 
+  labs(x = 'Seguro', y = 'Frequência Absoluta', title = "Distribuição do seguro")
+```
+
+```{r}
+hist_private<- ggplot(data %>% count(y, PRIVATE) %>%    
+         mutate(pct=n/sum(n)),
+       aes(as.factor(y), n, fill=as.factor(PRIVATE))) +
+  geom_bar(stat="identity") +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
+scale_fill_manual(guide_legend(title="Privado"), values = c("#7570B3", "#E7298A"), labels = c("Não Privado","Privado")) + 
+  labs(x = 'Seguro', y = 'Frequência Absoluta', title = "Distribuição do seguro")
+
+
+patch_hist <- (hist_men|hist_urban)/hist_private
+ggsave("graphics/patch_hist.png", patch_hist , width = 12, height = 6, device='png', limitsize = FALSE, dpi= 500, units = "in")
+```
+
+```{r}
+
+library(patchwork)
+
+
+scatter_age <- ggplot(data, aes(y=y,
+                x=AGE, color = as.factor(MEN)), pch = 21) +
+geom_point(position="identity", alpha=0.5) +
+ylab("Seguro") +
+xlab("Idade") +
+ggtitle("Distribuição das idades") + 
+scale_color_manual(guide_legend(title="Sexo"), values =  c("#D95F02", "#1B9E77"), labels = c("Feminino", "Masculino"))
+
+
+scatter_urban <- ggplot(data, aes(y=y,
+                x=AGE, color = as.factor(URBAN)), pch = 21) +
+geom_point(position="identity", alpha=0.5) +
+ylab("Seguro") +
+xlab("Idade") +
+ggtitle("Distribuição das idades") + 
+scale_color_manual(guide_legend(title="Região"), values = c("#66A61E", "#666666"), labels = c("Não Urbano","Urbano")) 
+
+
+scatter_private<- ggplot(data, aes(y=y,
+                x=AGE, color = as.factor(PRIVATE)), pch = 21) +
+geom_point(position="identity", alpha=0.5) +
+ylab("Seguro") +
+xlab("Idade") +
+ggtitle("Distribuição das idades") + 
+scale_color_manual(guide_legend(title="Privado"), values = c("#7570B3", "#E7298A"), labels = c("Não Privado","Privado"))
+
+
+patch_g3g4 <- scatter_age/scatter_urban/scatter_private
+patch_g3g4
+```
+
+```{r}
+library("scales")
+brewer.pal(n = 8, name = "Dark2")
+
+ "#1B9E77" "#D95F02" "#7570B3" "#E7298A" "#66A61E" "#E6AB02"
+"#A6761D" "#666666"
+```
