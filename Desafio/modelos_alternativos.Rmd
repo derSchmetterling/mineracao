@@ -1,0 +1,96 @@
+---
+title: "Modelos Alternativos"
+author: "Pedro Vinicius Alves"
+date: "2023-04-11"
+output: pdf_document
+---
+
+
+
+```{r setup, include=FALSE}
+
+#: warning: false
+#| echo: false
+
+library(randomForest)
+library(dplyr)
+```
+
+## Leitura dos Dados
+
+
+```{r cars}
+data <- read.csv2('basetreino.csv', sep = ',')
+
+data_test <- read.csv2('baseteste.csv', sep = ',')
+
+data_test <- data_test %>%
+  mutate_at(vars("URBAN", "MEN", "PRIVATE", "y"), as.factor)
+
+data_reg <- data %>%
+  mutate_at(vars("URBAN", "MEN", "PRIVATE", "y"), as.factor)
+
+head(data)
+```
+
+### Acurácia Treino
+
+Primeiramento tunamos o modelo para encontrar o melhor valor de mtry - número de variáveis amostradas aleatoriamente.
+```{r}
+t <- tuneRF(data_reg[,-1], data_reg[,1],
+       stepFactor = 0.5,
+       plot = TRUE,
+       ntreeTry = 150,
+       trace = TRUE,
+       improve = 0.05)
+```
+
+
+
+```{r pressure, echo=FALSE}
+rf <- randomForest(y~., data=data_reg, proximity=TRUE, mtry = 2) 
+print(rf)
+plot(rf)
+```
+
+```{r}
+p1 <- predict(rf, data_reg)
+cf_train <- caret::confusionMatrix(p1, data_reg$y)
+cf_train
+```
+
+### Acurácia Teste
+
+```{r}
+p2 <- predict(rf, data_test)
+cf_test <- caret::confusionMatrix(p2, data_test$y)
+cf_test
+```
+
+```{r}
+hist(treesize(rf),
+     main = "No. of Nodes for the Trees",
+     col = "green")
+varImpPlot(rf,
+           sort = T,
+           n.var = 10,
+           main = "Top 10 - Variable Importance")
+importance(rf)
+```
+
+```{r}
+partialPlot(rf, data_reg, SENIORITY, "1")
+partialPlot(rf, data_reg, URBAN, "1")
+partialPlot(rf, data_reg, MEN, "1")
+partialPlot(rf, data_reg, PRIVATE, "1")
+partialPlot(rf, data_reg, AGE, "1")
+
+```
+
+```{r}
+MDSplot(rf, data_reg$y)
+```
+
+## 
+
+
