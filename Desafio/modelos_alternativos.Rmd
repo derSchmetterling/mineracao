@@ -14,6 +14,8 @@ output: pdf_document
 
 library(randomForest)
 library(dplyr)
+library(R2jags)
+library(coda)
 ```
 
 ## Leitura dos Dados
@@ -32,6 +34,81 @@ data_reg <- data %>%
 
 head(data)
 ```
+
+### Reversal Power Links
+
+```{r}
+modelString="
+model{
+  for (i in 1:N) {
+    y[i] ~ dbern(p[i])
+    m[i] <- beta0+beta_urban*URBAN[i] + beta_sen*SEN[i] + beta_age*AGE[i] + beta_men*MEN[i]
+    pstar[i] <- 1/(1+exp(-m[i]))
+    p[i] <- pow(pstar[i], lambda)
+  
+  }
+  beta0 ~ dnorm(0,100)
+  delta ~ dunif(-2,2)
+  lambda <- exp(delta)
+  beta_urban ~ dnorm(0,100)
+  beta_sen ~ dnorm(0,100)
+  beta_age ~ dnorm(0,100)
+  beta_men ~ dnorm(0,100)
+  
+  }
+
+"
+writeLines(modelString, con='models/m1_logit.bug')
+```
+
+
+```{r}
+power(2,3)
+```
+
+
+```{r}
+N = nrow(data)
+jagsData <- list(N = N, y = data$y,
+    URBAN = data$URBAN, SEN = data$SENIORITY, 
+    AGE = data$AGE, MEN = data$MEN)
+```
+
+```{r}
+m1_blogit <- jags(data=jagsData,model.file='models/m1_logit.bug',
+                   param=c('beta0','beta_urban', 'beta_sen', 'beta_age', 'beta_men'),
+                   n.chains=3, n.iter=20000, n.burnin=5000, n.thin=10)
+```
+
+
+```{r}
+m1_blogit
+```
+
+```{r}
+traceplot(m1_blogit)
+```
+
+```{r}
+summary(jagsfit.mcmc)$statistics[, 'Mean']
+```
+
+
+
+```{r}
+library(lattice)
+
+jagsfit.mcmc <- as.mcmc(m1_blogit)
+densityplot(jagsfit.mcmc)
+
+HPDinterval(jagsfit.mcmc)
+traceplot(jagsfit.mcmc)
+```
+
+
+
+
+
 
 ### Acurácia Treino
 
@@ -91,6 +168,27 @@ partialPlot(rf, data_reg, AGE, "1")
 MDSplot(rf, data_reg$y)
 ```
 
-## 
+## Redes Neurais
+
+
+```{r}
+library(tensorflow)
+library(keras)
+set.seed(10727865)
+```
+
+```{r}
+
+data_reg$y <- as.integer(data_reg$y)
+
+data_reg %>% {
+  cat(sprintf(
+    "Número de indivíduos com cobertura completa de seguro: %s (%.2f%% of total)\n",
+    nrow(filter(data_reg,y == 1)), 100*nrow(filter(data_reg,y == 1))/nrow(data_reg)))
+}
+```
+
+
+
 
 
