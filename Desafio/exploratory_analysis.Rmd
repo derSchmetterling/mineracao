@@ -64,6 +64,20 @@ Essa seção faz a amostragem dos conjunto de dados e salva os arquivos resultan
 
 ## Apresentação dos Dados
 
+Uma das modalidades de seguro de veículos é conhecida como cobertura completa e pode ser acionada para cubrir os custos de danos ao automóvel por qualquer tipo de acidente, colisão, furto, vandalismos, enchentes ou impacto causado por um objeto inanimado. Baseado em um lista de quatro características de possíveis clientes querendo predizer a probabilidade de um indíviduo a cobertura completa. O conjunto de dados é formado por 2000 observações:
+
+-   **AGE** - variável inteira, idade em anos dos indivíduos
+
+-   **MEN** - variável binária, sexo dos indivíduos (1- Masculino, 0 - Feminino)
+
+-   **URBAN** - variável binária, se o indivíduo dirige em 1 - área urbana, 0 - área rural
+
+-   **PRIVATE** - variável binária, o veículo é utilizado de forma 1 - privada, 0 - outra forma
+
+-   **SENIORITY** - variável inteira, tempo de uso da carteira de motorista
+
+-   **y** - variável binária, o indivíduo adquiriu cobertura completa? 1 - cobertura completa, 0- não adquiriu cobertura completa
+
 ```{r}
 data <- read.csv2('basetreino.csv', sep = ',')
 
@@ -78,15 +92,9 @@ data_reg <- data %>%
 head(data)
 ```
 
-MEN - SEXO
-
-URBAN - driving area (urban or rural)
-
-PRIVATE - vehicle use (commercial or private)
-
-SENIORITY - seniority in the interprise
-
 ## Correlações
+
+Inicialmente, fazemos uma análise de correlação para descobrir se as covariáveis possuem alguma forte relação linear entre si (multicolineariedade) ou com a variável resposta.
 
 ### Pearson
 
@@ -527,6 +535,7 @@ model{
     logit(p[i]) <- beta0+beta_urban*URBAN[i] + beta_sen*SEN[i] + beta_sen*AGE[i] + beta_men*MEN[i]
   }
   beta0 ~ dnorm(0,100)
+  delta ~ duniform(-2,2)
   beta_urban ~ dnorm(0,100)
   beta_sen ~ dnorm(0,100)
   beta_age ~ dnorm(0,100)
