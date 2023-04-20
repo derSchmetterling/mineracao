@@ -37,14 +37,16 @@ head(data)
 
 ### Reversal Power Links
 
+Não precisa ser rodado.
+
 ```{r}
 modelString="
 model{
   for (i in 1:N) {
     y[i] ~ dbern(p[i])
     m[i] <- beta0+beta_urban*URBAN[i] + beta_sen*SEN[i] + beta_age*AGE[i] + beta_men*MEN[i]
-    pstar[i] <- 1/(1+exp(-m[i]))
-    p[i] <- pow(pstar[i], lambda)
+    pstar[i] <- 1/3.141592* arctan(-m[i]) + 1/2
+    p[i] <- 1-pow(pstar[i], lambda)
   
   }
   beta0 ~ dnorm(0,100)
@@ -58,13 +60,10 @@ model{
   }
 
 "
-writeLines(modelString, con='models/m1_logit.bug')
+writeLines(modelString, con='models/m1_cauchit.bug')
 ```
 
 
-```{r}
-power(2,3)
-```
 
 
 ```{r}
@@ -75,19 +74,18 @@ jagsData <- list(N = N, y = data$y,
 ```
 
 ```{r}
-m1_blogit <- jags(data=jagsData,model.file='models/m1_logit.bug',
+m1_blogit <- jags(data=jagsData,model.file='models/m1_cauchit.bug',
                    param=c('beta0','beta_urban', 'beta_sen', 'beta_age', 'beta_men'),
                    n.chains=3, n.iter=20000, n.burnin=5000, n.thin=10)
 ```
 
 
 ```{r}
-m1_blogit
+mcmc.samples <- as.mcmc(m1_blogit)
+save(mcmc.samples, file="models/mcmc_results.RData")
 ```
 
-```{r}
-traceplot(m1_blogit)
-```
+
 
 ```{r}
 summary(jagsfit.mcmc)$statistics[, 'Mean']
