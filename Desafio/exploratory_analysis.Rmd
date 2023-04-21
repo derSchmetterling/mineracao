@@ -300,7 +300,7 @@ df
 
 ```
 
-# Modelos
+# Modelos Lineares Generalizados (Clássicos)
 
 Nessa seção, temos o objetivo de ajustar o melhor modelo para predizer, dado as informações do indivíduo, se ele possui ou não cobertura completa do seguro.
 
@@ -322,7 +322,7 @@ O intercepto e o coeficiente de Private são não significativos, logo retiramos
 ```{r}
 m1_logit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = "logit"), data = data_reg)
-summary(m1)
+summary(m1_logit)
 ```
 
 Verificamos agora o ajuste do modelo utilizando os resíduos de quantil. De forma geral, se o modelo faz um bom ajuste dos dados, esperamos que apenas 5% dos pontos se encontrem fora do envelope simulado. Como esse não é o caso de m1_logit, temos um indicativo de o problema não é bem especificado por ele.
@@ -409,7 +409,7 @@ Epi::ROC(m1_cloglog$fitted.values, data$y, plot= "ROC")
 
 ### Loglog
 
-O modelo com função de ligação loglog
+O modelo com função de ligação loglog também recai no problema de mau ajuste e seu desempenho preditivo é apresentado mais adiante.
 
 ```{r}
 
@@ -430,7 +430,7 @@ valideta = function(eta) TRUE,
 name = "loglog"
 ), class = "link-glm")
 
-m1_loglog <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
+m1_loglog <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN-1,
  family = binomial(link = loglog()), data = data_reg)
 
 #hnp.fit.modell = hnp(m1_loglog, print.on=TRUE, plot=FALSE,
@@ -445,32 +445,30 @@ Epi::ROC(m1_loglog$fitted.values, data$y, plot= "ROC")
 
 ### AIC
 
-Comparando os modelos pelo critério de Akaike, temos que o modelo loglog
-
 ```{r}
 # Dataframe para verificar o AIC
 data.frame(Modelo=c("Modelo logito","Modelo probito","Modelo cauchito","Modelo cloglog","Modelo loglog"),
-AIC = c(AIC(m1),AIC(m1_probit),AIC(m1_cauchit),
+AIC = c(AIC(m1_logit),AIC(m1_probit),AIC(m1_cauchit),
 AIC(m1_cloglog), AIC(m1_loglog)))
 ```
 
-O modelo loglog é o que apresenta menor AIC, porém, como todos os outros, temos fortes indicativos de um mau ajuste ao olhar o QQPlot.
+Comparando os modelos pelo critério de Akaike, temos que o modelo loglog tende o mais balanceado em relação a qualidade de ajuste e quantidade de parâmetros. Contudo, como todos os outros modelos ajustados, temos fortes indicativos de um mau ajuste evidenciado pelos gráficos de envelope simulado. Prosseguiremos para a análise de influência e alavancagem dos pontos.
 
-#### Retira de pontos influentes Loglog
+## Retira de pontos influentes Loglog
+
+O gráfico em azul apresenta a distância de Cook para identificar pontos influentes. O segundo gráfico mostra os resíduos studentizados e a tabela apresenta informações de alguns pontos apontados como outlier usando o teste de Bonferroni para outliers.
 
 ```{r}
-plot(m1_loglog)
-
+#plot(m1_loglog)
 influenceIndexPlot(m1_loglog,col='blue')
-```
-
-```{r}
 influencePlot(m1_loglog)
 ```
 
-Pelos valores de resíduos studentizados, temos que os pontos 771 e 1400 encontram-se foram do intervalor (-2,2). Para avaliar a alavancagem, procuramos valores de Hat tais que $h > \frac{2p}{n} = \frac{10}{1400} = 0,007$
+Pelos valores de resíduos studentizados, temos que os pontos 771 e 1400 encontram-se foram do intervalor (-2,2).
 
-Assim, chegamos que os pontos 529 e 665. Como esses pontos também foram postos em evidência pela distância de Cook, vamos verificar o impacto de sua retirada.
+Para avaliar a alavancagem, procuramos valores de Hat superiores a 2\*p/n = 0,007. Assim, concluimos que os pontos 529 e 665 apresentam indícios de impactarem nas predições do modelo. Como esses pontos também foram postos em evidência pela distância de Cook, vamos verificar o impacto de sua retirada.
+
+Ajustamos um modelo considerando a retirada de cada ponto e um modelo considerando a remoção de ambos.
 
 ```{r}
 
@@ -488,6 +486,8 @@ compareCoefs(m1_loglog,ajuste1, ajuste2, ajuste3)
 
 ```
 
+Ao comparar os coeficientes entre os modelos não notamos diferenças significativas entre os coeficientes. Vejamos o impacto no AIC:
+
 ```{r}
 data.frame(
 Modelo= c("Completo", "Removendo 529", "Removendo 665",
@@ -495,9 +495,11 @@ Modelo= c("Completo", "Removendo 529", "Removendo 665",
 AIC = c(AIC(m1_loglog),AIC(ajuste1), AIC(ajuste2), AIC(ajuste3)))
 ```
 
-Nota-se que o AIC diminui com a retirada de ambos os pontos, porém como não podemos simplesmente retirá-los sem permissão do pesquisador, vamos sugerir dois modelos: 1 reduzido e 1 completo.
+Nota-se que o AIC diminui com a retirada de ambos os pontos. Sem uma base teórica que justifique a retirada desses pontos, não podemos simplesmente excluí-los da análise. Porém, vamos seguir utilizando o modelo reduzido para testar seu desempenho no conjunto de teste.
 
 ## Acurácia no conjunto de teste
+
+A seguir,testamos o poder de predição de todos os modelos ajustados até o momento.
 
 ```{r}
 accuracy <- function(model, model_roc, test_df) {
@@ -518,16 +520,23 @@ accuracy <- function(model, model_roc, test_df) {
 ```{r}
 ## Cloglog model
 y_pred <- predict(m1_logit,newdata = data_test, type = 'response')
-roc_logit <- ROC(y_pred, data_test$y, plot= "ROC")
+roc_logit <- ROC(y_pred, data_test$y, plot= F)
 
 logit_acc_train <- accuracy(m1_logit, roc_logit, data_test )
 
 ```
 
 ```{r}
+y_pred <- predict(ajuste3,newdata = data_test, type = 'response')
+roc_logit <- ROC(y_pred, data_test$y, plot= F)
+
+logitr_acc_train <- accuracy(ajuste3, roc_logit, data_test )
+```
+
+```{r}
 ## probit model
 y_pred <- predict(m1_probit,newdata = data_test, type = 'response')
-roc_probit <- ROC(y_pred, data_test$y, plot= "ROC")
+roc_probit <- ROC(y_pred, data_test$y, plot= F)
 
 probit_acc_train <- accuracy(m1_probit, roc_probit, data_test )
 ```
@@ -535,7 +544,7 @@ probit_acc_train <- accuracy(m1_probit, roc_probit, data_test )
 ```{r}
 ## Cloglog model
 y_pred <- predict(m1_loglog,newdata = data_test, type = 'response')
-roc_loglog <- ROC(y_pred, data_test$y, plot= "ROC")
+roc_loglog <- ROC(y_pred, data_test$y, plot= F)
 
 loglog_acc_train <- accuracy(m1_loglog, roc_loglog, data_test )
 ```
@@ -543,7 +552,7 @@ loglog_acc_train <- accuracy(m1_loglog, roc_loglog, data_test )
 ```{r}
 ## cauchit model
 y_pred <- predict(m1_cauchit,newdata = data_test, type = 'response')
-roc_cauchit <- ROC(y_pred, data_test$y, plot= "ROC")
+roc_cauchit <- ROC(y_pred, data_test$y, plot= F)
 
 cauchit_acc_train <- accuracy(m1_cauchit, roc_cauchit, data_test )
 ```
@@ -551,7 +560,7 @@ cauchit_acc_train <- accuracy(m1_cauchit, roc_cauchit, data_test )
 ```{r}
 ## Cloglog model
 y_pred <- predict(m1_cloglog,newdata = data_test, type = 'response')
-roc_cloglog <- ROC(y_pred, data_test$y, plot= "ROC")
+roc_cloglog <- ROC(y_pred, data_test$y, plot= F)
 
 cloglog_acc_train <- accuracy(m1_cloglog, roc_cloglog, data_test )
 
@@ -574,11 +583,11 @@ library(formattable)
 
 # Create a data frame with the data
 data <- data.frame(
-  Modelo = c("Modelo logit", "Modelo probit", "Modelo cauchit", "Modelo cloglog", "Modelo loglog"),
-  AIC =  c(AIC(m1),AIC(m1_probit),AIC(m1_cauchit),
-AIC(m1_cloglog), AIC(m1_loglog)),
+  Modelo = c("Modelo logit", "Modelo probit", "Modelo cauchit", "Modelo cloglog", "Modelo loglog", "Modelo loglog Reduzido"),
+  AIC =  c(AIC(m1_logit),AIC(m1_probit),AIC(m1_cauchit),
+AIC(m1_cloglog), AIC(m1_loglog), AIC(ajuste3)),
   Acuracia_Teste = c(logit_acc_train,probit_acc_train,cauchit_acc_train,
-cloglog_acc_train, loglog_acc_train)
+cloglog_acc_train, loglog_acc_train, logitr_acc_train)
 )
 
 # Create a formattable
@@ -589,6 +598,64 @@ ft <- formattable(data,
 # Print the formattable
 print(ft)
 
+```
+
+Comparando tanto o AIC quanto a acurácia, vemos que o modelo com função de ligação loglog completo e o reduzido possuem um desempenho melhor do que os outros.
+
+# Random Forest
+
+```{r}
+library(randomForest)
+```
+
+O algoritmo de RandomForest trata-se de uma combinação de árvores de classificação. Os resultados gerados em diferentes árvores são posteriomente agregados em um único, de forma a reduzir a chance de superajuste (overfitting) e aumentar a acurácia.
+
+Inicialmente, usamos a função tuneRF para encontrar o valor de mtry (número de variáveis aleatoriamente amostradas para ajustar as árvores).
+
+```{r}
+t <- tuneRF(data_reg[,-1], data_reg[,1],
+       stepFactor = 0.5,
+       plot = TRUE,
+       ntreeTry = 150,
+       trace = TRUE,
+       improve = 0.05)
+```
+
+Usando mtry = 2, usamos randomForest para ajustar o modelo.
+
+```{r}
+rf <- randomForest(y~., data=data_reg, proximity=TRUE, mtry = 2) 
+print(rf)
+#plot(rf)
+```
+
+No conjunto de treino, temos um taxa de erro de 31.29%, vemos também que o modelo tende a errar mais para indivíduos que possuem cobertura completa do seguro. Vejamos o desempenho do modelo no conjunto de treino:
+
+```{r}
+p2 <- predict(rf, data_test)
+cf_test <- caret::confusionMatrix(p2, data_test$y)
+cf_test
+acc_rf <- cf_test$overall[1]
+
+
+#f1 score
+recall <- as.double(cf_test$byClass[1])
+precision <- as.double(cf_test$byClass[3])
+
+f1_rf <- 2*(recall*precision)/(precision+recall)
+```
+
+Temos uma acurácia de 0.72 e um F1-Score de 0.78.
+
+```{r}
+#hist(treesize(rf),
+#     main = "No. of Nodes for the Trees",
+#     col = "green")
+varImpPlot(rf,
+           sort = T,
+           n.var = 4,
+           main = "Top 10 - Variable Importance")
+importance(rf)
 ```
 
 ## Soluções Bayesianas

@@ -75,8 +75,8 @@ jagsData <- list(N = N, y = data$y,
 
 ```{r}
 m1_blogit <- jags(data=jagsData,model.file='models/m1_cauchit.bug',
-                   param=c('beta0','beta_urban', 'beta_sen', 'beta_age', 'beta_men'),
-                   n.chains=3, n.iter=20000, n.burnin=5000, n.thin=10)
+                   param=c('beta0','beta_urban', 'beta_sen', 'beta_age', 'beta_men', 'lambda'),
+                   n.chains=3, n.iter=30000, n.burnin=5000, n.thin=10)
 ```
 
 
@@ -86,23 +86,186 @@ save(mcmc.samples, file="models/mcmc_results.RData")
 ```
 
 
-
-```{r}
-summary(jagsfit.mcmc)$statistics[, 'Mean']
-```
-
-
-
 ```{r}
 library(lattice)
 
 jagsfit.mcmc <- as.mcmc(m1_blogit)
-densityplot(jagsfit.mcmc)
+densityplot(mcmc.samples)
 
 HPDinterval(jagsfit.mcmc)
 traceplot(jagsfit.mcmc)
 ```
 
+## Predição no Conjunto de Teste
+
+```{r}
+
+predict_bcauchit <- function(jagsfit.mcmc, data) {
+# data deve ser do tipo dataframe
+
+#vetor da média dos coeficientes beta_age/beta_men/beta_sen/beta_urban
+coef <- as.matrix(summary(jagsfit.mcmc)$statistics[, 'Mean'][1:5])
+lambda <- as.matrix(summary(jagsfit.mcmc)$statistics[, 'Mean'])[7]
+
+
+data_matrix <- data.matrix(data)[,c(-1,-4)][, c(3,1,4,2)]
+data_matrix <- cbind(data_matrix, intercept = 1)
+n <- dim(data_matrix)[1]
+
+
+#coef * data
+res <- t(coef) %*% t(data_matrix)
+res_vec <- as.vector(res)
+
+
+pstar <- 1/pi* atan(-res_vec) + 0.5
+p <- 1- pstar^lambda
+
+predictions <- rbinom(n, 1, p)
+
+return(predictions)
+}
+```
+
+```{r}
+pred_train <- predict_bcauchit(jagsfit.mcmc, data)
+
+```
+
+
+```{r}
+accuracy_bayes <- function(y, y_pred) {
+  
+
+  acc <- mean(y == y_pred)
+  
+  return(acc)
+  
+}
+
+accuracy_bayes(data$y, pred_train)
+```
+
+
+
+## Posterior Predictive 
+
+```{r}
+
+# Generate posterior predictive samples
+predictive.samples <- co(m1_blogit, newdata=data, nsim=1000)
+
+plot(predictive.samples)
+
+```
+
+
+```{r}
+samps <- coda.samples(m1_blogit, n.iter=10000 )
+
+```
+
+
+
+## RStan
+
+
+```{r}
+#| warning: false
+library(rstan)
+library(bayesplot)
+```
+
+
+
+```{r}
+stanString <- "
+data {
+  int N;
+  int<lower=0, upper=1> y[N];
+  int<lower=0, upper=1> URBAN[N];
+  int<lower=0, upper=1> MEN[N];
+  int SEN[N];
+  int AGE[N];
+}
+
+parameters {
+  real beta0;
+  real beta_urban;
+  real beta_sen;
+  real beta_age;
+  real beta_men;
+  real<lower=-2, upper=2> delta;
+}
+
+transformed parameters {
+  real m[N];
+  real pstar[N];
+  real p[N];
+  
+  real lambda;
+  lambda <- exp(delta);
+  
+  for (i in 1:N) {
+    m[i] = beta0 + beta_urban * URBAN[i] + beta_sen * SEN[i] + beta_age * AGE[i] + beta_men * MEN[i];
+    pstar[i] = 1 /(pi()) * atan(-m[i]) + 0.5;
+    p[i] = 1 - pow(pstar[i], lambda);
+  }
+}
+
+model {
+  beta0 ~ normal(0, 100);
+  beta_urban ~ normal(0, 100);
+  beta_sen ~ normal(0, 100);
+  beta_age ~ normal(0, 100);
+  beta_men ~ normal(0, 100);
+  delta ~ uniform(-2, 2);
+  y ~ bernoulli(p);
+}
+"
+
+writeLines(stanString, con = "models/cauchito.stan")
+```
+
+
+
+
+```{r}
+N <- nrow(data)
+
+data_list <- list(N = N, y = data$y, URBAN = data$URBAN, MEN = data$MEN, SEN = data$SEN, AGE = data$AGE)
+
+
+
+# Compile model
+model <- stan_model(model_code = stanString)
+
+# Run MCMC chains
+fit <- sampling(model, data = data_list, chains = 1, iter = 2000, warmup = 1000, seed = 123)
+
+# Print summary of results
+#print(fit)
+```
+
+```{r}
+
+sampling(fit)
+color_scheme_set("red")
+ppc_dens_overlay(y = fit$y,
+                 yrep = posterior_predict(fit, draws = 50))
+```
+
+
+
+### Erros ao rodar
+
+Verifique se a versão do R for superior a 4.2 faça -> https://github.com/stan-dev/rstan/wiki/Configuring-C---Toolchain-for-Windows
+
+```{r}
+
+#install.packages("StanHeaders", repos = c("https://mc-stan.org/r-packages/", getOption("repos")))
+#install.packages("rstan", repos = c("https://mc-stan.org/r-packages/", getOption("repos")))
+```
 
 
 
