@@ -329,14 +329,10 @@ partialPlot(rf, data_reg, AGE, "1")
 MDSplot(rf, data_reg$y)
 ```
 
-## Redes Neurais
 
 
-```{r}
-library(tensorflow)
-library(keras)
-set.seed(10727865)
-```
+
+
 
 ```{r}
 

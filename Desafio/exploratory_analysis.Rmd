@@ -5,7 +5,12 @@ editor: visual
 ---
 
 ```{r}
-#: warning: false
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+```
+
+```{r}
+#| warning: false
 #| echo: false
 library(ggplot2)
 library(GGally)
@@ -140,7 +145,7 @@ Vemos que Seniority e Age possuem uma correlação estatisticamente significante
 
 Calculamos também o coeficiente de Spearman para identificar correlações monotônicas entre as variáveis. Valores faltantes indicam que a correlação é estatististicamente igual a zero ao nível de 5% de confiança.
 
-```{r}
+```{r, tidy = TRUE}
 #| warning: false
 numeric <- c("AGE", "SENIORITY", "y", "MEN", "URBAN", "PRIVATE")
 df_spearman<- data[, numeric]
@@ -454,7 +459,7 @@ AIC(m1_cloglog), AIC(m1_loglog)))
 
 Comparando os modelos pelo critério de Akaike, temos que o modelo loglog tende o mais balanceado em relação a qualidade de ajuste e quantidade de parâmetros. Contudo, como todos os outros modelos ajustados, temos fortes indicativos de um mau ajuste evidenciado pelos gráficos de envelope simulado. Prosseguiremos para a análise de influência e alavancagem dos pontos.
 
-## Retira de pontos influentes Loglog
+## Retirada de pontos influentes Loglog
 
 O gráfico em azul apresenta a distância de Cook para identificar pontos influentes. O segundo gráfico mostra os resíduos studentizados e a tabela apresenta informações de alguns pontos apontados como outlier usando o teste de Bonferroni para outliers.
 
@@ -499,81 +504,52 @@ Nota-se que o AIC diminui com a retirada de ambos os pontos. Sem uma base teóri
 
 ## Acurácia no conjunto de teste
 
-A seguir,testamos o poder de predição de todos os modelos ajustados até o momento.
+A seguir,testamos o poder de predição dos modelos loglog com o conjunto de dados completo e reduzido.. Aplicamos novamente a curva ROC e calculamos o F1-Score dos algoritmos, assim podemos ter uma ideia de como as predições
 
 ```{r}
 accuracy <- function(model, model_roc, test_df) {
   
   #use roc returned by Epi roc function
   
-  thresh_index <- which.max(rowSums(model_roc$res[, c("sens", "spec")])) 
+  thresh_index <- which.max(rowSums(model_roc$res[, c("sens", "spec")]))
+  
+  recall <- model_roc$res[thresh_index,][1,1]
+  precision <- model_roc$res[thresh_index,][1,3]
+
+  f1_score <- 2*(recall*precision)/(recall+precision)
+  
+  
   thresh <- as.double(rownames(model_roc$res[thresh_index,][1]))
-  predict_test <- ifelse(predict(model, newdata = test_df, type = 'response') > thresh, 1,0)
+  predict_test <- ifelse(predict(model, newdata = test_df, type = 'response') >= thresh, 1,0)
   
   acc <- mean(predict_test == test_df$y)
   
-  return(acc)
+  return(c(acc,precision, recall,f1_score))
   
 }
 ```
 
 ```{r}
-## Cloglog model
-y_pred <- predict(m1_logit,newdata = data_test, type = 'response')
-roc_logit <- ROC(y_pred, data_test$y, plot= F)
-
-logit_acc_train <- accuracy(m1_logit, roc_logit, data_test )
-
-```
-
-```{r}
 y_pred <- predict(ajuste3,newdata = data_test, type = 'response')
-roc_logit <- ROC(y_pred, data_test$y, plot= F)
+roc_logit <- Epi::ROC(y_pred, data_test$y, plot= F)
 
-logitr_acc_train <- accuracy(ajuste3, roc_logit, data_test )
+logitr_res_test <- accuracy(ajuste3, roc_logit, data_test )
+logitr_acc_test <- logitr_res_test[1]
+logitr_f1_test<-  logitr_res_test[4]
+logitr_precision_test <- logitr_res_test[2]
+logitr_recall_test <- logitr_res_test[3]
 ```
 
 ```{r}
-## probit model
-y_pred <- predict(m1_probit,newdata = data_test, type = 'response')
-roc_probit <- ROC(y_pred, data_test$y, plot= F)
-
-probit_acc_train <- accuracy(m1_probit, roc_probit, data_test )
-```
-
-```{r}
-## Cloglog model
+## loglog model
 y_pred <- predict(m1_loglog,newdata = data_test, type = 'response')
-roc_loglog <- ROC(y_pred, data_test$y, plot= F)
+roc_loglog <- Epi::ROC(y_pred, data_test$y, plot= F)
 
-loglog_acc_train <- accuracy(m1_loglog, roc_loglog, data_test )
-```
-
-```{r}
-## cauchit model
-y_pred <- predict(m1_cauchit,newdata = data_test, type = 'response')
-roc_cauchit <- ROC(y_pred, data_test$y, plot= F)
-
-cauchit_acc_train <- accuracy(m1_cauchit, roc_cauchit, data_test )
-```
-
-```{r}
-## Cloglog model
-y_pred <- predict(m1_cloglog,newdata = data_test, type = 'response')
-roc_cloglog <- ROC(y_pred, data_test$y, plot= F)
-
-cloglog_acc_train <- accuracy(m1_cloglog, roc_cloglog, data_test )
-
-
-```
-
-```{r}
-# Dataframe para verificar o AIC
-data.frame(Modelo=c("Modelo logito","Modelo probito","Modelo cauchito","Modelo cloglog","Modelo loglog"),
-AIC = c(AIC(m1),AIC(m1_probit),AIC(m1_cauchit),
-AIC(m1_cloglog), AIC(m1_loglog)),
-'Acurácia Teste' = c(logit_acc_train,probit_acc_train,cauchit_acc_train,
-cloglog_acc_train, loglog_acc_train))
+loglog_res_test <- accuracy(m1_loglog, roc_loglog, data_test )
+loglog_acc_test <- loglog_res_test[1]
+loglog_f1_test<-  loglog_res_test[4]
+loglog_precision_test <- loglog_res_test[2]
+loglog_recall_test <- loglog_res_test[3]
 ```
 
 ```{r}
@@ -583,11 +559,12 @@ library(formattable)
 
 # Create a data frame with the data
 data <- data.frame(
-  Modelo = c("Modelo logit", "Modelo probit", "Modelo cauchit", "Modelo cloglog", "Modelo loglog", "Modelo loglog Reduzido"),
-  AIC =  c(AIC(m1_logit),AIC(m1_probit),AIC(m1_cauchit),
-AIC(m1_cloglog), AIC(m1_loglog), AIC(ajuste3)),
-  Acuracia_Teste = c(logit_acc_train,probit_acc_train,cauchit_acc_train,
-cloglog_acc_train, loglog_acc_train, logitr_acc_train)
+  Modelo = c("Modelo loglog", "Modelo loglog Reduzido"),
+  'Acurácia' = c(loglog_acc_test, logitr_acc_test),
+  'Precisão' = c(loglog_precision_test, logitr_precision_test),
+  'Recall' = c(loglog_recall_test, logitr_recall_test),
+  
+ 'F1Score' = c(loglog_f1_test, logitr_f1_test)
 )
 
 # Create a formattable
@@ -599,8 +576,6 @@ ft <- formattable(data,
 print(ft)
 
 ```
-
-Comparando tanto o AIC quanto a acurácia, vemos que o modelo com função de ligação loglog completo e o reduzido possuem um desempenho melhor do que os outros.
 
 # Random Forest
 
@@ -639,6 +614,7 @@ acc_rf <- cf_test$overall[1]
 
 
 #f1 score
+#recall or sensitity/ recall or PPV
 recall <- as.double(cf_test$byClass[1])
 precision <- as.double(cf_test$byClass[3])
 
@@ -656,6 +632,10 @@ varImpPlot(rf,
            n.var = 4,
            main = "Top 10 - Variable Importance")
 importance(rf)
+```
+
+```{r}
+knitr::knit_exit()
 ```
 
 ## Soluções Bayesianas
