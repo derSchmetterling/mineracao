@@ -24,7 +24,8 @@ library(patchwork)
 library(hnp)
 library(Epi)
 library(car)
-
+library(R2jags)
+library(coda)
 ```
 
 # Amostragem da base e separação teste/treino
@@ -537,7 +538,7 @@ Modelo= c("Completo", "Removendo 529", "Removendo 665",
 AIC = c(AIC(m1_loglog),AIC(ajuste1), AIC(ajuste2), AIC(ajuste3)))
 ```
 
-Nota-se que o AIC diminui com a retirada de ambos os pontos. Sem uma base teórica que justifique a retirada desses pontos, não podemos simplesmente excluí-los da análise. Porém, vamos seguir utilizando o modelo reduzido para testar seu desempenho no conjunto de teste.
+Nota-se que o AIC diminui com a retirada de ambos os pontos. Sem uma base teórica que justifique a retirada desses pontos, não podemos simplesmente excluí-los da análise. Porém, vamos seguir utilizando o modelo reduzido para testar seu desempenho no conjunto de teste. Em seguida, ajustamos outros algoritmos para o conjunto de dados.
 
 ## Acurácia no conjunto de teste
 
@@ -595,7 +596,7 @@ loglog_recall_test <- loglog_res_test[3]
 library(formattable)
 
 # Create a data frame with the data
-data <- data.frame(
+table <- data.frame(
   Modelo = c("Modelo loglog", "Modelo loglog Reduzido"),
   'Acurácia' = c(loglog_acc_test, logitr_acc_test),
   'Precisão' = c(loglog_precision_test, logitr_precision_test),
@@ -605,7 +606,7 @@ data <- data.frame(
 )
 
 # Create a formattable
-ft <- formattable(data,
+ft <- formattable(table,
                   align = c("l", "r", "r") # Set alignment for each column
 )
 
@@ -617,6 +618,7 @@ print(ft)
 # Random Forest
 
 ```{r}
+#| warning: false
 library(randomForest)
 ```
 
@@ -652,10 +654,10 @@ acc_rf <- cf_test$overall[1]
 
 #f1 score
 #recall or sensitity/ recall or PPV
-recall <- as.double(cf_test$byClass[1])
-precision <- as.double(cf_test$byClass[3])
+recall_forest <- as.double(cf_test$byClass[1])
+precision_forest <- as.double(cf_test$byClass[3])
 
-f1_rf <- 2*(recall*precision)/(precision+recall)
+f1_forest <- 2*(recall*precision)/(precision+recall)
 ```
 
 Temos uma acurácia de 0.72 e um F1-Score de 0.78.
@@ -677,15 +679,19 @@ knitr::knit_exit()
 
 # Soluções Bayesianas
 
+```{r}
+library(R2jags)
+```
+
 ## Modelo Cauchit
 
 A seguir, ajustaremos um modelo linear generalizado bayesiano com função de ligação de potência inversa.
 
 $$
-Y_i |\beta,\delta \sim Bernoulli(F(x_i\beta))
-\beta \sim N(0,100)
-\delta \sim Uniforme(-2,2)
-\lambda = \exp(\delta)
+Y_i |\beta,\delta \sim Bernoulli(F(x_i\beta)) \\ 
+\beta \sim N(0,100) \\ 
+\delta \sim Uniforme(-2,2)\\ 
+\lambda = \exp(\delta) \\
 $$
 
 Como utilizamos um método de
@@ -724,20 +730,20 @@ jagsData <- list(N = N, y = data$y,
 ```{r}
 m1_blogit <- jags(data=jagsData,model.file='models/m1_cauchit.bug',
                    param=c('beta0','beta_urban', 'beta_sen', 'beta_age', 'beta_men', 'lambda'),
-                   n.chains=3, n.iter=30000, n.burnin=5000, n.thin=10)
+                   n.chains=3, n.iter=10000, n.burnin=5000, n.thin=10)
 ```
 
 ```{r}
-mcmc.samples <- as.mcmc(m1_blogit)
+
 ```
 
 ```{r}
 library(lattice)
 
-jagsfit.mcmc <- as.mcmc(m1_blogit)
+mcmc.samples <- as.mcmc(m1_blogit)
 densityplot(mcmc.samples)
 
-HPDinterval(jagsfit.mcmc)
+HPDinterval(jagsfit.mcmc)[1]
 traceplot(jagsfit.mcmc)
 
 ```
@@ -795,8 +801,48 @@ accuracy_bayes <- function(model_roc, test_df, predict) {
   
 }
 
-roc_bayes <- Epi::ROC(pred_train, data$y, plot= F)
-accuracy_bayes(ajuste3, roc_bayes, data, pred_train )
+pred_test <- predict_bcauchit(mcmc.samples,data_test)
+
+roc_bayes <- Epi::ROC(pred_test, data_test$y, plot= F)
 
 
+metrics_bayes <- accuracy_bayes(roc_bayes, data_test, pred_test )
+acc_bayes <- metrics_bayes[1]
+prec_bayes <- metrics_bayes[2]
+recall_bayes<-metrics_bayes[3]
+f1_bayes <- metrics_bayes[4]
+
+
+```
+
+# Predição no conjunto de teste
+
+A seguir apresentamos o desempanho dos modelos ajustados para o conjunto de teste.
+
+```{r}
+# Load the required libraries
+library(formattable)
+
+# Create a data frame with the data
+data <- data.frame(
+  Modelo = c("Modelo loglog", "Modelo loglog Reduzido", "Random Forest", "Cauchit Potência Inversa"),
+  'Acurácia' = round(c(loglog_acc_test, logitr_acc_test, acc_rf, acc_bayes),3),
+  'Precisão' = round(c(loglog_precision_test, logitr_precision_test, precision_forest, prec_bayes),3),
+  'Recall' = round(c(loglog_recall_test, logitr_recall_test, recall_forest, recall_bayes),3),
+  
+ 'F1Score' = round(c(loglog_f1_test, logitr_f1_test, f1_forest, f1_bayes),3)
+)
+
+
+
+
+
+
+# Create a formattable
+ft <- formattable(data,
+                  align = c("l", "r", "r") # Set alignment for each column
+)
+
+# Print the formattable
+print(ft)
 ```
