@@ -89,31 +89,62 @@ data_test <- read.csv2('baseteste.csv', sep = ',')
 data_test <- data_test %>%
   mutate_at(vars("URBAN", "MEN", "PRIVATE", "y"), as.factor)
 
-data_reg <- data %>%
-  mutate_at(vars("URBAN", "MEN", "PRIVATE", "y"), as.factor)
 
 head(data)
 ```
 
 ## Inconsistências
 
-As colunas que podem apresentar algum tipo de inconsistência são Age e Seniority. Um indivíduo não poderia ter mais anos de trabalho em uma mesma empresa do que de vida.
+As colunas que podem apresentar algum tipo de inconsistência são Age e Seniority. Um indivíduo não poderia ter mais anos de trabalho em uma mesma empresa do que de vida. Não temos nenhuma observação desse tipo no conjunto de treino.
+
+```{r}
+#inconsistência no conjunto de treino
+inconsist1_treino <- data %>% 
+  filter(SENIORITY > AGE)
+inconsist1_treino
+```
+
+Encontramos uma inconsistência no conjunto de teste e procedemos a sua deleção.
 
 ```{r}
 
-inconsist1 <- data %>% 
+
+
+inconsist1_teste <- data_test %>% 
   filter(SENIORITY > AGE)
 
-inconsist1
+inconsist1_teste
+
+
+todel_index <- which(data_test$SENIORITY > data_test$AGE)
+
+data_test <- data_test[-c(todel_index),]
+data_test
+
+
+
 ```
 
-Felizmente não temos esse problema em nossa amostra. Filtramos também indivíduos menores de idade e encontramos duas observações. Não sabemos de qual país os dados foram retirados, contudo a
+Filtramos também indivíduos menores de idade e encontramos duas observações no conjunto de treino. Não temos informação sobre o país na qual a amostra foi retirada então não podemos concluir sobre a possibilidade dessas observações e procedemos para sua deleção.
 
 ```{r}
 inconsist2 <- data %>% 
   filter(AGE < 18)
 
-inconsist2
+todel_index <- which(data$AGE < 18)
+data <- data[-c(todel_index),]
+
+```
+
+Igualmente para o conjunto de teste
+
+```{r}
+inconsist2 <- data_test %>% 
+  filter(AGE < 18)
+
+todel_index <-which(data_test$AGE < 18)
+data_test <- data_test[-c(todel_index),]
+
 ```
 
 ## Correlações
@@ -307,6 +338,14 @@ df
 
 Nessa seção, temos o objetivo de ajustar o melhor modelo para predizer, dado as informações do indivíduo, se ele possui ou não cobertura completa do seguro.
 
+```{r}
+data_reg <- data %>%
+  mutate_at(vars("URBAN", "MEN", "PRIVATE", "y"), as.factor)
+
+data_test <- data_test %>%
+  mutate_at(vars("URBAN", "MEN", "PRIVATE", "y"), as.factor)
+```
+
 ## Regressão Logística (GLM com ligação logit)
 
 Começamos ajustando um modelo de regressão logística clássico. Usamos todas as covariáveis possíveis e aplicamos testes de significância aos coeficientes.
@@ -320,7 +359,7 @@ summary(m0)
 
 ```
 
-O intercepto e o coeficiente de Private são não significativos, logo retiramos seus coeficientes do modelo.
+O intercepto e o coeficiente de Private são não significativos, mas procederemos para a retirada apenas do segundo.
 
 ```{r}
 m1_logit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
@@ -359,7 +398,7 @@ Epi::ROC(m1_logit$fitted.values, data$y, plot= "ROC")
 Ao utlizar a função de ligação probito, temos um modelo com ainda mais pontos foram do envelope simulado e com área sob a curva também de 0.785.
 
 ```{r}
-m1_probit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN-1,
+m1_probit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = "probit"), data = data_reg)
 
 hnp.fit.modell = hnp(m1_probit, print.on=TRUE, plot=FALSE,
@@ -374,7 +413,7 @@ Epi::ROC(m1_probit$fitted.values, data$y, plot= "ROC")
 
 ### Cauchit
 
-Usando a função de ligação Cauchit, temos uma leve melhor na área sob a curva obtendo 0.786, porém continuamos obtendo indicativos de mau ajuste.
+Usando a função de ligação Cauchit, temos uma leve melhor na área sob a curva obtendo 0.785, porém continuamos obtendo indicativos de mau ajuste.
 
 ```{r}
 m1_cauchit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
@@ -433,7 +472,7 @@ valideta = function(eta) TRUE,
 name = "loglog"
 ), class = "link-glm")
 
-m1_loglog <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN-1,
+m1_loglog <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = loglog()), data = data_reg)
 
 #hnp.fit.modell = hnp(m1_loglog, print.on=TRUE, plot=FALSE,
@@ -475,7 +514,7 @@ Ajustamos um modelo considerando a retirada de cada ponto e um modelo consideran
 
 ```{r}
 
-ajuste1 <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
+ajuste1 <- glm(formula = y ~URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = loglog()), subset = -c(529) , data = data_reg)
 
 ajuste2 <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
@@ -502,7 +541,7 @@ Nota-se que o AIC diminui com a retirada de ambos os pontos. Sem uma base teóri
 
 ## Acurácia no conjunto de teste
 
-A seguir,testamos o poder de predição dos modelos loglog com o conjunto de dados completo e reduzido.. Aplicamos novamente a curva ROC e calculamos o F1-Score dos algoritmos, assim podemos ter uma ideia de como as predições
+A seguir,testamos o poder de predição dos modelos loglog com o conjunto de dados completo e reduzido. Aplicamos novamente a curva ROC e calculamos o F1-Score dos algoritmos, assim podemos ter uma ideia de como as predições
 
 ```{r}
 accuracy <- function(model, model_roc, test_df) {
@@ -529,7 +568,7 @@ accuracy <- function(model, model_roc, test_df) {
 
 ```{r}
 y_pred <- predict(ajuste3,newdata = data_test, type = 'response')
-roc_logit <- Epi::ROC(y_pred, data_test$y, plot= F)
+roc_logit <- Epi::ROC(y_pred, data_test$y, plot= T)
 
 logitr_res_test <- accuracy(ajuste3, roc_logit, data_test )
 logitr_acc_test <- logitr_res_test[1]
