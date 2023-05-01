@@ -236,6 +236,13 @@ scale_color_manual(guide_legend(title="Sexo"), values =  c("#D95F02", "#1B9E77")
 
 ```
 
+Notamos também que a maioria dos dados são referentes a indivíduos que não possuem cobertura completa do seguro, tal desbalanceio pode dificultar a modelagem do problema.
+
+```{r}
+print(paste('Indíviduos sem cobertura completa',nrow(filter(data, y == '0'))))
+print(paste('Indíviduos com cobertura completa',nrow(filter(data, y == '1'))))
+```
+
 ### Seguro vs região onde dirige (URBAN)
 
 A maior parte dos indivíduos dirigem em áreas urbanas e não adquiriram o seguro completo. Por outro lado, não parece haver grande diferença entre a proporção de indivíduos que compraram ou não o seguro completo entre as áreas rural e urbana
@@ -845,4 +852,66 @@ ft <- formattable(data,
 
 # Print the formattable
 print(ft)
+```
+
+# Reamostrando a base de dados
+
+Como demonstrado na análise exploratória da base de treino, temos um desbalanceio entre o número de observações referentes a indivíduos que adquiriram ou não o seguro. Podemos reamostrar a base usando o algoritmo SMOTE para gerar novas amostras para a classe minoritária (indivíduos que possuem seguro completo), de modo a balancear o conjunto de dados.
+
+```{r}
+#| warning: false
+#install.packages('smotefamily')
+library(smotefamily)
+
+
+
+data_smote <- data %>%
+  mutate_at(vars("URBAN", "MEN", "PRIVATE"), as.factor)
+  
+
+smote <- SMOTE(data[,-1], data$y, dup_size = 1)
+df_oversampled <- smote$data
+```
+
+Após a aplicação do algoritmo, temos um número mais equilibrado de indivíduos. Terminamos com 911 observações sem cobertura completa do seguro e 974 com cobertura completa.
+
+```{r}
+
+
+hist(as.integer(df_oversampled$class), col='coral', main = 'Distribuição de Seguro após SMOTE')
+table(df_oversampled$class)
+
+
+overdf_reg <- df_oversampled %>%
+  mutate_at(vars("URBAN", "MEN", "PRIVATE", "SENIORITY", "AGE"), as.integer) %>%
+  mutate_at(vars("URBAN", "MEN", "PRIVATE", "class"), as.factor)
+```
+
+## 
+
+## Modelos Lineares Generalizados (Clássicos)
+
+```{r}
+m0_over <- glm(formula = class ~  URBAN + SENIORITY+ AGE + MEN,
+ family = binomial(link = 'logit'), data = overdf_reg)
+
+summary(m0_over)
+```
+
+```{r}
+hnp.fit.modell = hnp(m0_over, print.on=TRUE, plot=FALSE,
+halfnormal=F)
+## Binomial model
+plot(hnp.fit.modell,main="Modelo Logito",las=1,pch=20,cex=1,col=c(1,1,1,2))
+```
+
+```{r}
+y_pred <- predict(m0_over,newdata = data_test, type = 'response')
+roc_logit <- Epi::ROC(y_pred, data_test$y, plot= T)
+
+logitr_res_test <- accuracy(m0_over, roc_logit, data_test )
+logitr_acc_test <- logitr_res_test[1]
+logitr_f1_test<-  logitr_res_test[4]
+logitr_precision_test <- logitr_res_test[2]
+logitr_recall_test <- logitr_res_test[3]
 ```
