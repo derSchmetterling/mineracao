@@ -4,6 +4,14 @@ format: pdf
 editor: visual
 ---
 
+```{python}
+
+import pandas as pd
+
+df = pd.read_csv('basetreino.csv')
+print(df)
+```
+
 ```{r}
 library(knitr)
 opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
@@ -856,44 +864,98 @@ print(ft)
 
 # Reamostrando a base de dados
 
-Como demonstrado na análise exploratória da base de treino, temos um desbalanceio entre o número de observações referentes a indivíduos que adquiriram ou não o seguro. Podemos reamostrar a base usando o algoritmo SMOTE para gerar novas amostras para a classe minoritária (indivíduos que possuem seguro completo), de modo a balancear o conjunto de dados.
+Como demonstrado na análise exploratória da base de treino, temos um desbalanceio entre o número de observações referentes a indivíduos que adquiriram ou não o seguro. Podemos reamostrar a base principal de 2000 observações usando o algoritmo SMOTE para gerar novas amostras para a classe minoritária (indivíduos que possuem seguro completo), de modo a balancear o conjunto de dados.
 
 ```{r}
-#| warning: false
-#install.packages('smotefamily')
-library(smotefamily)
 
-
-
-data_smote <- data %>%
-  mutate_at(vars("URBAN", "MEN", "PRIVATE"), as.factor)
-  
-
-smote <- SMOTE(data[,-1], data$y, dup_size = 1)
-df_oversampled <- smote$data
+########### Código para reamostrar classe minoritária#########
+# set.seed(10727865)
+# #| warning: false
+# #install.packages('smotefamily')
+# library(smotefamily)
+# 
+# data_full <- read.csv2('baseprincipal.csv', sep = ',')
+# 
+# 
+# data_smote <- data_full %>%
+#   mutate_at(vars("URBAN", "MEN", "PRIVATE"), as.factor)
+#   
+# 
+# smote <- SMOTE(data_full[,-1], data_full$y, dup_size = 1)
+# df_oversampled <- smote$data
+# 
+# write.csv(df_oversampled,'baseprincipalreamostrada.csv', sep = '/t', row.names = F)
+######################################################3
 ```
 
-Após a aplicação do algoritmo, temos um número mais equilibrado de indivíduos. Terminamos com 911 observações sem cobertura completa do seguro e 974 com cobertura completa.
+Após a aplicação do algoritmo, temos um número mais equilibrado de indivíduos, a nova distribuição é apresentada abaixo.
 
 ```{r}
 
 
-hist(as.integer(df_oversampled$class), col='coral', main = 'Distribuição de Seguro após SMOTE')
+df_oversampled <- read.csv2('baseprincipalreamostrada.csv', sep = ',')
+
+
+hist(as.integer(df_oversampled$class), col='coral', main = 'Distribuição de Seguro após SMOTE', xlab = 'Seguro',
+     ylab = 'Frequência')
 table(df_oversampled$class)
 
 
 overdf_reg <- df_oversampled %>%
   mutate_at(vars("URBAN", "MEN", "PRIVATE", "SENIORITY", "AGE"), as.integer) %>%
-  mutate_at(vars("URBAN", "MEN", "PRIVATE", "class"), as.factor)
+  mutate_at(vars("URBAN", "MEN", "PRIVATE", "class"), as.factor) %>% 
+  rename('y' = 'class')
+
+
+
 ```
 
 ## 
 
+## Divisão Treino e Teste
+
+Dividimos novamente o conjunto de dados entre treino e teste.
+
+```{r}
+
+
+########### Código para gerar teste e treino ###########
+# set.seed(10727865)
+# train_idx <- caret::createDataPartition(overdf_reg$y, p =0.7, list = FALSE)
+# 
+# train_df <- overdf_reg[train_idx,]
+# test_df <- overdf_reg[-train_idx,]
+
+
+# write.csv(train_df,'basetreinoreamostrada.csv', sep = '/t', row.names = F)
+# 
+# write.csv(test_df,'basetestereamostrada.csv', sep = '/t', row.names = F)
+#######################################################
+
+```
+
+```{r}
+train_df  <- read.csv2('basetreinoreamostrada.csv', sep = ',')
+test_df  <- read.csv2('basetestereamostrada.csv', sep = ',')
+
+
+
+
+train_df <- train_df %>%
+  mutate_at(vars("URBAN", "MEN", "PRIVATE", "SENIORITY", "AGE"), as.integer) %>%
+  mutate_at(vars("URBAN", "MEN", "PRIVATE", "y"), as.factor)
+
+
+test_df <- test_df %>%
+  mutate_at(vars("URBAN", "MEN", "PRIVATE", "SENIORITY", "AGE"), as.integer) %>%
+  mutate_at(vars("URBAN", "MEN", "PRIVATE", "y"), as.factor)
+```
+
 ## Modelos Lineares Generalizados (Clássicos)
 
 ```{r}
-m0_over <- glm(formula = class ~  URBAN + SENIORITY+ AGE + MEN,
- family = binomial(link = 'logit'), data = overdf_reg)
+m0_over <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
+ family = binomial(link = 'logit'), data = train_df)
 
 summary(m0_over)
 ```
@@ -906,12 +968,55 @@ plot(hnp.fit.modell,main="Modelo Logito",las=1,pch=20,cex=1,col=c(1,1,1,2))
 ```
 
 ```{r}
-y_pred <- predict(m0_over,newdata = data_test, type = 'response')
-roc_logit <- Epi::ROC(y_pred, data_test$y, plot= T)
+y_pred <- predict(m0_over,newdata = test_df, type = 'response')
+roc_logit <- Epi::ROC(y_pred, test_df$y, plot= T)
 
-logitr_res_test <- accuracy(m0_over, roc_logit, data_test )
-logitr_acc_test <- logitr_res_test[1]
-logitr_f1_test<-  logitr_res_test[4]
-logitr_precision_test <- logitr_res_test[2]
-logitr_recall_test <- logitr_res_test[3]
+logitra_res_test <- accuracy(m0_over, roc_logit, test_df )
+logitra_acc_test <- logitra_res_test[1]
+logitra_f1_test<-  logitra_res_test[4]
+logitra_precision_test <- logitra_res_test[2]
+logitra_recall_test <- logitra_res_test[3]
+```
+
+### Modelo Bayesiano
+
+```{r}
+
+train_dfb <- train_df %>% 
+  mutate_at(vars('y'), as.character) %>% 
+  mutate_at(vars('y'), as.integer)
+
+N = nrow(train_dfb)
+jagsData <- list(N = N, y = train_dfb$y,
+    URBAN = train_dfb$URBAN, SEN = train_dfb$SENIORITY, 
+    AGE = train_dfb$AGE, MEN = train_dfb$MEN)
+```
+
+```{r}
+m1_blogita <- jags(data=jagsData,model.file='models/m1_cauchit.bug',
+                   param=c('beta0','beta_urban', 'beta_sen', 'beta_age', 'beta_men', 'lambda'),
+                   n.chains=3, n.iter=10000, n.burnin=5000, n.thin=10)
+```
+
+```{r}
+library(lattice)
+
+mcmc.samples <- as.mcmc(m1_blogita)
+densityplot(mcmc.samples)
+
+HPDinterval(mcmc.samples)[1]
+traceplot(mcmc.samples)
+```
+
+```{r}
+pred_test <- predict_bcauchit(mcmc.samples,test_df)
+
+roc_bayes <- Epi::ROC(pred_test, test_df$y, plot= F)
+
+
+metrics_bayes <- accuracy_bayes(roc_bayes, test_df, pred_test )
+acc_bayes <- metrics_bayes[1]
+prec_bayes <- metrics_bayes[2]
+recall_bayes<-metrics_bayes[3]
+f1_bayes <- metrics_bayes[4]
 ```
