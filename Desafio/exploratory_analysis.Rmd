@@ -149,6 +149,76 @@ data_test <- data_test[-c(todel_index),]
 
 ```
 
+## Análise de Agrupamento
+
+Antes de analisarmos o comportamento dos dados no grupo de treino, vamos usar o arquivo baseprincipal.csv para identificar perfis de compradores com base em um análise de agrupamento hierárquica.
+
+```{python}
+
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+
+
+
+df = pd.read_csv('baseprincipal.csv')
+
+df_scaled = df.copy()
+df_scaled.iloc[:,:] = StandardScaler().fit_transform(df)
+
+
+
+```
+
+Para definir o número clusters adequados, usamos uma métrica conhecida como *silhoutte score*: uma medida que varia de -1 a 1 e que mensura quão próximo as observações de um grupo estão de outros grupos. Idealmente queremos valores o mais próximo possível de 1.
+
+```{python}
+#| warning: false
+from sklearn.cluster import AgglomerativeClustering
+
+cluster = AgglomerativeClustering(n_clusters = 2,
+                                  distance_threshold=None,
+                                  compute_distances = True,
+                                  linkage='complete')
+model = cluster.fit(df_scaled)
+
+
+from yellowbrick.cluster import KElbowVisualizer
+
+visualizer = KElbowVisualizer(model, k=(3,12), timings=False, metric = 'silhouette')
+
+visualizer.fit(df)        # Fit the data to the visualizer
+visualizer.show()        # Finalize and render the figure
+```
+
+Usando 3 agrupamentos, temos o seguinte resultado:
+
+```{python}
+
+cluster = AgglomerativeClustering(n_clusters = 3,
+                                  distance_threshold=None,
+                                  compute_distances = True,
+                                  linkage='complete')
+model = cluster.fit(df_scaled)
+
+df_cluster = df.copy()
+df_cluster['HCluster'] = model.labels_.astype(str)
+df_cluster.sort_values(by = 'HCluster', inplace=True)
+
+print('Número de clusters: ', len(df_cluster['HCluster'].unique()))
+
+for i in df_cluster['HCluster'].unique():
+    siz = len(df_cluster[df_cluster['HCluster'] == i])
+    print(f'Cluster {i} tem {siz} indivíduos')
+
+```
+
+Nos resta agora interpretar os agrupamentos com bases nas variáveis:
+
+```{r}
+
+```
+
 ## Correlações
 
 Inicialmente, fazemos uma análise de correlação para descobrir se as covariáveis possuem alguma forte relação linear entre si (multicolineariedade) ou com a variável resposta.
@@ -209,7 +279,7 @@ Nessa seção, avaliamos quantitativamente a relação entre covariáveis e vari
 
 ### Seguro vs Sexo (MEN)
 
-Como apresentado abaixo, a grande maioria dos dados são referentes a homens que não adquiriram o seguro completo. A porcentagem de mulheres é aproximadamente igual entre os grupos, indicando que não parece haver diferença entre a proporção de indivíduos do sexo feminino entre os dois grupos.
+Como apresentado abaixo, a grande maioria dos dados são referentes a homens que não adquiriram o seguro completo. A porcentagem de mulheres é aproximadamente igual entre os grupos, indicando que não parece haver diferença entre a proporção de indivíduos do sexo feminino entre os dois grupos, contudo temos uma proporção maior de indivíduos do sexo masculino que não adquiriram seguro.
 
 ```{r}
 
@@ -236,7 +306,7 @@ print(paste('Indíviduos com cobertura completa',nrow(filter(data, y == '1'))))
 
 ### Seguro vs região onde dirige (URBAN)
 
-A maior parte dos indivíduos dirigem em áreas urbanas e não adquiriram o seguro completo. Por outro lado, não parece haver grande diferença entre a proporção de indivíduos que compraram ou não o seguro completo entre as áreas rural e urbana
+A maior parte dos indivíduos dirigem em áreas rurais e não adquiriram o seguro completo. Também não notamos diferenças significativas entre a proporção de indivíduos com seguro completo que dirigem na área urbana.
 
 ```{r}
 hist_urban<- ggplot(data %>% count(y, URBAN) %>%    
@@ -281,40 +351,6 @@ df <- data %>%
 df
 ```
 
-```{r}
-
-# scatter_private<- ggplot(data, aes(y=y,
-#                 x=SENIORITY, color = as.factor(PRIVATE)), pch = 21) +
-# geom_point(position="identity", alpha=0.5) +
-# ylab("Seguro") +
-# xlab("Idade") +
-# ggtitle("Distribuição do Seguro") + 
-# scale_color_manual(guide_legend(title="Privado"), values = c("#7570B3", "#E7298A"), labels = c("Comercial","Privado"))
-# scatter_private
-# 
-# 
-# scatter_urban<- ggplot(data, aes(y=y,
-#                 x=SENIORITY, color = as.factor(URBAN)), pch = 21) +
-# geom_point(position="identity", alpha=0.5) +
-# ylab("Seguro") +
-# xlab("Idade") +
-# ggtitle("Distribuição da senioridade") + 
-# scale_color_manual(guide_legend(title="Privado"), values = c("#7570B3", "#E7298A"), labels = c("Rural","Urbano"))
-# scatter_urban
-# 
-# 
-# scatter_men<- ggplot(data, aes(y=y,
-#                 x=SENIORITY, color = as.factor(MEN)), pch = 21) +
-# geom_point(position="identity", alpha=0.5) +
-# ylab("Seguro") +
-# xlab("Idade") +
-# ggtitle("Distribuição da senioridade") + 
-# scale_color_manual(guide_legend(title="Privado"), values = c("#7570B3", "#E7298A"), labels = c("Feminino","Masculino"))
-# scatter_men
-
-
-```
-
 # Modelos Lineares Generalizados (Clássicos)
 
 Nessa seção, temos o objetivo de ajustar o melhor modelo para predizer, dado as informações do indivíduo, se ele possui ou não cobertura completa do seguro.
@@ -351,10 +387,14 @@ summary(m1_logit)
 Verificamos agora o ajuste do modelo utilizando os resíduos de quantil. De forma geral, se o modelo faz um bom ajuste dos dados, esperamos que apenas 5% dos pontos se encontrem fora do envelope simulado. Como esse não é o caso de m1_logit, temos um indicativo de o problema não é bem especificado por ele.
 
 ```{r}
+#| warning: false
 hnp.fit.modell = hnp(m1_logit, print.on=TRUE, plot=FALSE,
 halfnormal=F)
 ## Binomial model
 plot(hnp.fit.modell,main="Modelo Logito",las=1,pch=20,cex=1,col=c(1,1,1,2))
+
+
+glmtoolbox::envelope(m1_logit)
 ```
 
 Ao analisar a curva ROC, obtemos um valor de 0.785 pra área sob a curva.
