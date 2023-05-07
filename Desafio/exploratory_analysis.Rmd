@@ -121,7 +121,6 @@ inconsist1_teste
 todel_index <- which(data_test$SENIORITY > data_test$AGE)
 
 data_test <- data_test[-c(todel_index),]
-data_test
 
 
 
@@ -132,7 +131,7 @@ Filtramos também indivíduos menores de idade e encontramos duas observações 
 ```{r}
 inconsist2 <- data %>% 
   filter(AGE < 18)
-
+inconsist2
 todel_index <- which(data$AGE < 18)
 data <- data[-c(todel_index),]
 
@@ -215,8 +214,55 @@ for i in df_cluster['HCluster'].unique():
 
 Nos resta agora interpretar os agrupamentos com bases nas variáveis:
 
-```{r}
+```{python}
+import seaborn as sns
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
 
+# figure size in inches
+def plots(data, x_axis, y_axis, hue,yaxis_title, xaxis_name, yaxis_name, colorblind = False):
+        if colorblind:
+                sns.set_palette(sns.color_palette("colorblind",4))
+        else: 
+                sns.set_palette(sns.color_palette("tab10",4)) 
+
+
+
+        p2 = sns.histplot(data = data,
+                        x = y_axis,
+                        hue = hue, 
+                        discrete = True,
+                        multiple = 'stack')
+        p2.set(title = f'Distribuição {yaxis_title}',
+                xlabel = yaxis_name,
+                ylabel = 'Frequência')
+        
+        aux01 = len(data[(data['HCluster'] == '0') & (data[y_axis] == 0)])
+        aux01_total = len(data[(data['HCluster'] == '0')])
+
+
+        aux02 = len(data[(data['HCluster'] == '1') & (data[y_axis] == 0)])
+        aux02_total = len(data[(data['HCluster'] == '1')])
+
+
+        aux03 = len(data[(data['HCluster'] == '2') & (data[y_axis] == 0)])
+        aux03_total = len(data[(data['HCluster'] == '2')])
+
+
+        c1 = f'Cluster 1: {aux01}/{aux01_total}'
+        c2 = f'Cluster 2: {aux02}/{aux02_total}'
+        c3 = f'Cluster 0: {aux03}/{aux03_total}'
+        plt.legend(title = f'Observações com {yaxis_title} igual a 0',labels=[c1, c2,c3], bbox_to_anchor=(-0.1,1.))
+        rcParams['figure.figsize'] = 5.7,10.27
+        
+        plt.show()
+```
+
+```{python}
+
+
+
+plots(df_cluster, 'AGE', 'y', 'HCluster', 'Seguro', 'Idade', 'Cobertura Completa(0 - Não, 1 - Sim)')
 ```
 
 ## Correlações
@@ -335,12 +381,6 @@ scale_fill_manual(guide_legend(title="Privado"), values = c("#7570B3", "#E7298A"
   labs(x = 'Seguro', y = 'Frequência Absoluta', title = "Distribuição do seguro")
 
 hist_private
-
-
-
-#patch_hist <- (hist_men|hist_urban)/hist_private
-#patch_hist
-#ggsave("graphics/patch_hist.png", patch_hist , width = 12, height = 6, device='png', limitsize = FALSE, dpi= 500, units = "in")
 ```
 
 Se filtrarmos os indivíduos que usam veículos de forma comercial, também notamos que todos são do sexo masculino.
@@ -384,16 +424,10 @@ m1_logit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
 summary(m1_logit)
 ```
 
-Verificamos agora o ajuste do modelo utilizando os resíduos de quantil. De forma geral, se o modelo faz um bom ajuste dos dados, esperamos que apenas 5% dos pontos se encontrem fora do envelope simulado. Como esse não é o caso de m1_logit, temos um indicativo de o problema não é bem especificado por ele.
+Verificamos agora o ajuste do modelo utilizando os resíduos de quantil. De forma geral, se o modelo faz um bom ajuste dos dados, esperamos que apenas 5% dos pontos se encontrem fora do envelope simulado. Pelo envelope simulado gerado abaixo não notamos fortes desvios.
 
 ```{r}
 #| warning: false
-hnp.fit.modell = hnp(m1_logit, print.on=TRUE, plot=FALSE,
-halfnormal=F)
-## Binomial model
-plot(hnp.fit.modell,main="Modelo Logito",las=1,pch=20,cex=1,col=c(1,1,1,2))
-
-
 glmtoolbox::envelope(m1_logit)
 ```
 
@@ -404,67 +438,52 @@ library(Epi)
 Epi::ROC(m1_logit$fitted.values, data$y, plot= "ROC")
 ```
 
-```{r}
-#library("scales")
-#brewer.pal(n = 8, name = "Dark2")
-
- #"#1B9E77" "#D95F02" "#7570B3" "#E7298A" "#66A61E" "#E6AB02"
-#"#A6761D" "#666666"
-```
-
 ## Regressão Logística (Probit, Cauchit, Cloglog, loglog)
 
 ### Probit
 
-Ao utlizar a função de ligação probito, temos um modelo com ainda mais pontos foram do envelope simulado e com área sob a curva também de 0.785.
+Ao utlizar a função de ligação probito, temos um modelo também sem indícios de mau ajuste e com área sob a curva também de 0.785.
 
 ```{r}
 m1_probit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = "probit"), data = data_reg)
 
-hnp.fit.modell = hnp(m1_probit, print.on=TRUE, plot=FALSE,
-halfnormal=F)
+glmtoolbox::envelope(m1_probit)
 
 summary(m1_probit)
 
 ## Binomial model
-plot(hnp.fit.modell,main="Modelo Probit",las=1,pch=20,cex=1,col=c(1,1,1,2))
 Epi::ROC(m1_probit$fitted.values, data$y, plot= "ROC")
 ```
 
 ### Cauchit
 
-Usando a função de ligação Cauchit, temos uma leve melhor na área sob a curva obtendo 0.785, porém continuamos obtendo indicativos de mau ajuste.
+Usando a função de ligação Cauchit:
 
 ```{r}
 m1_cauchit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = "cauchit"), data = data_reg)
 
-hnp.fit.modell = hnp(m1_probit, print.on=TRUE, plot=FALSE,
-halfnormal=F)
 
 summary(m1_cauchit)
 
 ## Binomial model
-plot(hnp.fit.modell,main="Modelo Cauchit",las=1,pch=20,cex=1,col=c(1,1,1,2))
+glmtoolbox::envelope(m1_cauchit)
 Epi::ROC(m1_cauchit$fitted.values, data$y, plot= "ROC")
 ```
 
 ### Cloglog
 
-Para a função de ligação Cloglog, temos uma área sob a curva menor e indicativo de mau ajuste.
+Para a função de ligação Cloglog:
 
 ```{r}
 m1_cloglog <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = "cloglog"), data = data_reg)
 
-hnp.fit.modell = hnp(m1_cloglog, print.on=TRUE, plot=FALSE,
-halfnormal=F)
 
 #summary(m1_cloglog)
-
+glmtoolbox::envelope(m1_cloglog)
 ## Binomial model
-plot(hnp.fit.modell,main="Modelo Cloglog",las=1,pch=20,cex=1,col=c(1,1,1,2))
 Epi::ROC(m1_cloglog$fitted.values, data$y, plot= "ROC")
 ```
 
@@ -472,7 +491,7 @@ Epi::ROC(m1_cloglog$fitted.values, data$y, plot= "ROC")
 
 ### Loglog
 
-O modelo com função de ligação loglog também recai no problema de mau ajuste e seu desempenho preditivo é apresentado mais adiante.
+O modelo com função de ligação loglog:
 
 ```{r}
 
@@ -502,11 +521,13 @@ m1_loglog <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
 summary(m1_loglog)
 
 ## Binomial model
-plot(hnp.fit.modell,main="Modelo Cloglog",las=1,pch=20,cex=1,col=c(1,1,1,2))
+glmtoolbox::envelope(m1_loglog)
 Epi::ROC(m1_loglog$fitted.values, data$y, plot= "ROC")
 ```
 
 ### AIC
+
+Utilizamos o critério de Akaike para selecionar um modelo:
 
 ```{r}
 # Dataframe para verificar o AIC
@@ -515,7 +536,7 @@ AIC = c(AIC(m1_logit),AIC(m1_probit),AIC(m1_cauchit),
 AIC(m1_cloglog), AIC(m1_loglog)))
 ```
 
-Comparando os modelos pelo critério de Akaike, temos que o modelo loglog tende o mais balanceado em relação a qualidade de ajuste e quantidade de parâmetros. Contudo, como todos os outros modelos ajustados, temos fortes indicativos de um mau ajuste evidenciado pelos gráficos de envelope simulado. Prosseguiremos para a análise de influência e alavancagem dos pontos.
+Comparando os modelos pelo critério de Akaike, temos que o modelo loglog tende o mais balanceado em relação a qualidade de ajuste e quantidade de parâmetros. A seguir, analisamos alavancagem e influência dos pontos utilizados no ajuste.
 
 ## Retirada de pontos influentes Loglog
 
@@ -560,11 +581,12 @@ AIC = c(AIC(m1_loglog),AIC(ajuste1), AIC(ajuste2), AIC(ajuste3)))
 
 Nota-se que o AIC diminui com a retirada de ambos os pontos. Sem uma base teórica que justifique a retirada desses pontos, não podemos simplesmente excluí-los da análise. Porém, vamos seguir utilizando o modelo reduzido para testar seu desempenho no conjunto de teste. Em seguida, ajustamos outros algoritmos para o conjunto de dados.
 
-## Acurácia no conjunto de teste
+## Predição no Conjunto de Teste
 
-A seguir,testamos o poder de predição dos modelos loglog com o conjunto de dados completo e reduzido. Aplicamos novamente a curva ROC e calculamos o F1-Score dos algoritmos, assim podemos ter uma ideia de como as predições
+Abaixo, calculamos as métricas de acurácia, precisão, recall e f1score para os modelos loglog completo e reduzido.
 
 ```{r}
+#cálculo de predição no conjunto de teste
 accuracy <- function(model, model_roc, test_df) {
   
   #use roc returned by Epi roc function
@@ -588,6 +610,7 @@ accuracy <- function(model, model_roc, test_df) {
 ```
 
 ```{r}
+#métricas para modelo reduzido
 y_pred <- predict(ajuste3,newdata = data_test, type = 'response')
 roc_logit <- Epi::ROC(y_pred, data_test$y, plot= T)
 
@@ -599,7 +622,7 @@ logitr_recall_test <- logitr_res_test[3]
 ```
 
 ```{r}
-## loglog model
+## métrica para modelo completo
 y_pred <- predict(m1_loglog,newdata = data_test, type = 'response')
 roc_loglog <- Epi::ROC(y_pred, data_test$y, plot= F)
 
@@ -608,31 +631,6 @@ loglog_acc_test <- loglog_res_test[1]
 loglog_f1_test<-  loglog_res_test[4]
 loglog_precision_test <- loglog_res_test[2]
 loglog_recall_test <- loglog_res_test[3]
-```
-
-```{r}
-
-# Load the required libraries
-library(formattable)
-
-# Create a data frame with the data
-table <- data.frame(
-  Modelo = c("Modelo loglog", "Modelo loglog Reduzido"),
-  'Acurácia' = c(loglog_acc_test, logitr_acc_test),
-  'Precisão' = c(loglog_precision_test, logitr_precision_test),
-  'Recall' = c(loglog_recall_test, logitr_recall_test),
-  
- 'F1Score' = c(loglog_f1_test, logitr_f1_test)
-)
-
-# Create a formattable
-ft <- formattable(table,
-                  align = c("l", "r", "r") # Set alignment for each column
-)
-
-# Print the formattable
-print(ft)
-
 ```
 
 # Random Forest
@@ -663,7 +661,7 @@ print(rf)
 #plot(rf)
 ```
 
-No conjunto de treino, temos um taxa de erro de 31.29%, vemos também que o modelo tende a errar mais para indivíduos que possuem cobertura completa do seguro. Vejamos o desempenho do modelo no conjunto de treino:
+No conjunto de treino, temos um taxa de erro de 31.29%, vemos também que o modelo tende a errar mais para indivíduos que possuem cobertura completa do seguro. Vejamos o desempenho do modelo no conjunto de teste:
 
 ```{r}
 p2 <- predict(rf, data_test)
@@ -677,7 +675,7 @@ acc_rf <- cf_test$overall[1]
 recall_forest <- as.double(cf_test$byClass[1])
 precision_forest <- as.double(cf_test$byClass[3])
 
-f1_forest <- 2*(recall*precision)/(precision+recall)
+f1_forest <- 2*(recall_forest*precision_forest)/(precision_forest+recall_forest)
 ```
 
 Temos uma acurácia de 0.72 e um F1-Score de 0.78.
@@ -705,16 +703,29 @@ library(R2jags)
 
 ## Modelo Cauchit
 
-A seguir, ajustaremos um modelo linear generalizado bayesiano com função de ligação de potência inversa.
+A seguir, ajustaremos um modelo linear generalizado bayesiano com função de ligação de potência inversa de cauchit. Essa função de ligação
 
 $$
 Y_i |\beta,\delta \sim Bernoulli(F(x_i\beta)) \\ 
-\beta \sim N(0,100) \\ 
-\delta \sim Uniforme(-2,2)\\ 
+$$
+
+$$
+\beta \sim N(0,100) \\
+$$
+
+$$
+\lambda \sim Uniform(-2,2) 
+$$
+
+$$
 \lambda = \exp(\delta) \\
 $$
 
-Como utilizamos um método de
+Em que:
+
+$$
+F(x_i| \beta) = 1-(\frac{1}{\pi}arctan(z)+0.5)^{\lambda}
+$$
 
 ```{r}
 modelString="
@@ -741,20 +752,20 @@ writeLines(modelString, con='models/m1_cauchit.bug')
 ```
 
 ```{r}
-N = nrow(data)
-jagsData <- list(N = N, y = data$y,
-    URBAN = data$URBAN, SEN = data$SENIORITY, 
-    AGE = data$AGE, MEN = data$MEN)
+
+data_scaled = data
+data_scaled$AGE <- as.numeric(scale(data$AGE))
+data_scaled$SENIORITY <- as.numeric(scale(data$SENIORITY))
+
+N = nrow(data_scaled)
+jagsData <- list(N = N, y = data_scaled$y,
+    URBAN = data_scaled$URBAN, SEN = data_scaled$SENIORITY    ,AGE = data_scaled$AGE, MEN = data_scaled$MEN)
 ```
 
 ```{r}
 m1_blogit <- jags(data=jagsData,model.file='models/m1_cauchit.bug',
                    param=c('beta0','beta_urban', 'beta_sen', 'beta_age', 'beta_men', 'lambda'),
-                   n.chains=3, n.iter=10000, n.burnin=5000, n.thin=10)
-```
-
-```{r}
-
+                   n.chains=1, n.iter=10000, n.burnin=5000, n.thin=10)
 ```
 
 ```{r}
@@ -763,8 +774,8 @@ library(lattice)
 mcmc.samples <- as.mcmc(m1_blogit)
 densityplot(mcmc.samples)
 
-HPDinterval(jagsfit.mcmc)[1]
-traceplot(jagsfit.mcmc)
+HPDinterval(mcmc.samples)[1]
+traceplot(mcmc.samples)
 
 ```
 
@@ -795,9 +806,11 @@ pstar <- 1/pi* atan(-res_vec) + 0.5
 p <- 1- pstar^lambda
 
 predictions <- rbinom(n, 1, p)
+#predictions <- Rlab::rbern(n, p)
 
 return(predictions)
 }
+
 
 
 accuracy_bayes <- function(model_roc, test_df, predict) {
@@ -823,6 +836,9 @@ accuracy_bayes <- function(model_roc, test_df, predict) {
 
 pred_test <- predict_bcauchit(mcmc.samples,data_test)
 
+length(pred_test)
+data_test
+
 roc_bayes <- Epi::ROC(pred_test, data_test$y, plot= F)
 
 
@@ -837,7 +853,17 @@ f1_bayes <- metrics_bayes[4]
 
 # Predição no conjunto de teste
 
-A seguir apresentamos o desempanho dos modelos ajustados para o conjunto de teste.
+A seguir,testamos o poder de predição dos modelos loglog com o conjunto de dados completo e reduzido. Aplicamos novamente a curva ROC e calculos as seguintes métricas:
+
+-   **Acurácia**: para mensurar o desempenho médio do modelo na classificação de indivíduos propensos a adquirir seguro completo
+
+-   **Precisão**: mensura a proporção de classificações corretas na classe positiva
+
+-   **Recall**: mensura a proporção de classificações corretas na classe negativa
+
+-   **F1-Score:** média harmônica entre precisão e recall
+
+Para o caso do seguro, podemos incorrer em erros de falsos positivos(classificar como 1 quando o correto seria 0) ou falsos negativos (classificar como 0 quando o correto seria 1). O primeiro caso ocasionaria a abordagem de clientes com baixa propensão a adquirir o seguro completo, já o segundo resultaria em não abordar clientes com alto potencial de comprar o seguro. Como o segundo tipo de erro é financeiramente mais danoso a uma companhia, usaremos o recall como critério de escolha principal para o melhor modelo.
 
 ```{r}
 # Load the required libraries
