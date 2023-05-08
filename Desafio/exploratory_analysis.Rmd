@@ -451,7 +451,7 @@ Epi::ROC(m1_logit$fitted.values, data$y, plot= "ROC")
 
 Ao utlizar a função de ligação probito, temos um modelo também sem indícios de mau ajuste e com área sob a curva também de 0.785.
 
-```{r, message=FALSE}
+```{r, message=FALSE, results='hide', fig.keep='all'}
 m1_probit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = "probit"), data = data_reg)
 
@@ -477,8 +477,12 @@ m1_cauchit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
 summary(m1_cauchit)
 
 ## Binomial model
-glmtoolbox::envelope(m1_cauchit)
+graph <- glmtoolbox::envelope(m1_cauchit)
 Epi::ROC(m1_cauchit$fitted.values, data$y, plot= "ROC")
+```
+
+```{r}
+graph
 ```
 
 ### Cloglog
