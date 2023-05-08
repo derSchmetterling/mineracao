@@ -8,11 +8,17 @@ editor: visual
 library(knitr)
 
 opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+knitr::opts_chunk$set(message = FALSE)
 ```
 
 ```{r}
 #| warning: false
 #| echo: false
+
+defaultW <- getOption("warn") 
+
+options(warn = -1) 
+
 library(ggplot2)
 library(GGally)
 library(dplyr)
@@ -79,7 +85,7 @@ Uma das modalidades de seguro de veículos é conhecida como cobertura completa 
 
 -   **PRIVATE** - variável binária, forma de utilização do veículo (1 - Privada, 0 - Comercial)
 
--   **SENIORITY** - variável inteira, tempo de trabalho em uma mesma empresa
+-   **SENIORITY** - variável inteira, tempo de carta de motorista
 
 -   **y** - variável binária, se o indivíduo adquiriu cobertura completa? (1 - possui cobertura completa, 0- não possui cobertura completa)
 
@@ -97,7 +103,7 @@ head(data)
 
 ## Inconsistências
 
-As colunas que podem apresentar algum tipo de inconsistência são Age e Seniority. Um indivíduo não poderia ter mais anos de trabalho em uma mesma empresa do que de vida. Não temos nenhuma observação desse tipo no conjunto de treino.
+As colunas que podem apresentar algum tipo de inconsistência são Age e Seniority. Um indivíduo não poderia ter mais anos de carta de motorista do que de vida. Não temos nenhuma observação desse tipo no conjunto de treino.
 
 ```{r}
 #inconsistência no conjunto de treino
@@ -426,8 +432,9 @@ summary(m1_logit)
 
 Verificamos agora o ajuste do modelo utilizando os resíduos de quantil. De forma geral, se o modelo faz um bom ajuste dos dados, esperamos que apenas 5% dos pontos se encontrem fora do envelope simulado. Pelo envelope simulado gerado abaixo não notamos fortes desvios.
 
-```{r}
+```{r, message=FALSE}
 #| warning: false
+#| echo: false
 glmtoolbox::envelope(m1_logit)
 ```
 
@@ -444,7 +451,7 @@ Epi::ROC(m1_logit$fitted.values, data$y, plot= "ROC")
 
 Ao utlizar a função de ligação probito, temos um modelo também sem indícios de mau ajuste e com área sob a curva também de 0.785.
 
-```{r}
+```{r, message=FALSE}
 m1_probit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = "probit"), data = data_reg)
 
@@ -460,7 +467,9 @@ Epi::ROC(m1_probit$fitted.values, data$y, plot= "ROC")
 
 Usando a função de ligação Cauchit:
 
-```{r}
+```{r, message=FALSE}
+#| warning: false
+#| echo: false
 m1_cauchit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = "cauchit"), data = data_reg)
 
@@ -691,10 +700,6 @@ varImpPlot(rf,
 importance(rf)
 ```
 
-```{r}
-knitr::knit_exit()
-```
-
 # Soluções Bayesianas
 
 ```{r}
@@ -855,7 +860,7 @@ f1_bayes <- metrics_bayes[4]
 
 # Predição no conjunto de teste
 
-A seguir,testamos o poder de predição dos modelos loglog com o conjunto de dados completo e reduzido. Aplicamos novamente a curva ROC e calculos as seguintes métricas:
+A seguir,testamos o poder de predição dos modelos loglog com o conjunto de dados completo e reduzido e os outros modelos implementados. Aplicamos novamente a curva ROC e calculos as seguintes métricas:
 
 -   **Acurácia**: para mensurar o desempenho médio do modelo na classificação de indivíduos propensos a adquirir seguro completo
 
@@ -865,7 +870,7 @@ A seguir,testamos o poder de predição dos modelos loglog com o conjunto de dad
 
 -   **F1-Score:** média harmônica entre precisão e recall
 
-Para o caso do seguro, podemos incorrer em erros de falsos positivos(classificar como 1 quando o correto seria 0) ou falsos negativos (classificar como 0 quando o correto seria 1). O primeiro caso ocasionaria a abordagem de clientes com baixa propensão a adquirir o seguro completo, já o segundo resultaria em não abordar clientes com alto potencial de comprar o seguro. Como o segundo tipo de erro é financeiramente mais danoso a uma companhia, usaremos o recall como critério de escolha principal para o melhor modelo.
+Para o caso do seguro, podemos incorrer em erros de falsos positivos(classificar como 1 quando o correto seria 0) ou falsos negativos (classificar como 0 quando o correto seria 1). O primeiro caso ocasionaria a abordagem de clientes com baixa propensão a adquirir o seguro completo, já o segundo resultaria em não abordar clientes com alto potencial de comprar o seguro. Como o segundo tipo de erro é financeiramente mais danoso a uma companhia, usaremos o recall como critério de escolha principal para o melhor modelo, uma vez que um valor alto recall significa um baixo número de falsos negativos.
 
 ```{r}
 # Load the required libraries
@@ -893,6 +898,10 @@ ft <- formattable(data,
 
 # Print the formattable
 print(ft)
+```
+
+```{r}
+knitr::knit_exit()
 ```
 
 # Reamostrando a base de dados
