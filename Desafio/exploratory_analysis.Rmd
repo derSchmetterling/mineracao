@@ -75,7 +75,9 @@ Essa seção faz a amostragem dos conjunto de dados e salva os arquivos resultan
 
 ## Apresentação dos Dados
 
-Uma das modalidades de seguro de veículos é conhecida como cobertura completa e pode ser acionada para cubrir os custos de danos ao automóvel por qualquer tipo de acidente, colisão, furto, vandalismos, enchentes ou impacto causado por um objeto inanimado. Baseado em um lista de quatro características de possíveis clientes desejamos predizer a probabilidade de um indíviduo adquirir a cobertura completa. O conjunto de dados é formado por 2000 observações com as seguintes covariáveis:
+Uma das modalidades de seguro de veículos é conhecida como cobertura completa e pode ser acionada para cubrir os custos de danos ao automóvel por qualquer tipo de acidente, colisão, furto, vandalismos, enchentes ou impacto causado por um objeto inanimado.
+
+Baseado em um lista de quatro características desejamos predizer a probabilidade de um indíviduo adquirir a cobertura completa e assim poder guiar o processo de escolha de potenciais clientes O conjunto de dados é formado por 2000 observações com as seguintes covariáveis:
 
 -   **AGE** - variável inteira, idade em anos dos indivíduos
 
@@ -158,42 +160,62 @@ data_test <- data_test[-c(todel_index),]
 
 Antes de analisarmos o comportamento dos dados no grupo de treino, vamos usar o arquivo baseprincipal.csv para identificar perfis de compradores com base em um análise de agrupamento hierárquica.
 
-```{python}
+```{r}
+library(NbClust)
+library(cluster)
+library(clustertend)
+library(factoextra)
 
-import pandas as pd
-import numpy as np
-from sklearn.preprocessing import StandardScaler
+set.seed(10727865)
 
-
-
-df = pd.read_csv('baseprincipal.csv')
-
-df_scaled = df.copy()
-df_scaled.iloc[:,:] = StandardScaler().fit_transform(df)
-
+df_cluster <- read.csv2('baseprincipal.csv', sep = ',')
+df_cluster$AGE <- scale(df_cluster$AGE)
+df_cluster$SENIORITY <- scale(df_cluster$SENIORITY)
 
 
+fviz_nbclust(df_cluster, hcut, method = "silhouette")
+
+hierarchical.clustering <- hclust(dist(df_cluster), method = "complete") 
+hc4 <- diana(df_cluster)
+#plot(hierarchical.clustering)
+
+#names(hierarchical.clustering)
+#hierarchical.clustering$call
+
+
+
+# Cutting tree by no. of clusters
+fit <- cutree(hierarchical.clustering, k = 2 )
+table(fit)
+#rect.hclust(hierarchical.clustering, k = 3, border = "green")
+df_cluster$HCluster <- fit
 ```
 
-Para definir o número clusters adequados, usamos uma métrica conhecida como *silhoutte score*: uma medida que varia de -1 a 1 e que mensura quão próximo as observações de um grupo estão de outros grupos. Idealmente queremos valores o mais próximo possível de 1.
+A escolha do número de clusters foi feita de modo a gerar o maior número de insights acerca de diferentes agrupamentos.
 
-```{python}
+```{r}
 #| warning: false
-from sklearn.cluster import AgglomerativeClustering
+plot <- function(df, var, yname){
 
-cluster = AgglomerativeClustering(n_clusters = 2,
-                                  distance_threshold=None,
-                                  compute_distances = True,
-                                  linkage='complete')
-model = cluster.fit(df_scaled)
+  
+arg <- match.call()
+ggplot(df, aes(x=eval(arg$var), fill=as.factor(HCluster))) +
+  geom_bar(position="stack")+
+  scale_fill_manual(values = c("#E69F00", "#56B4E9", "#009E73"),
+                    labels = c('Cluster1', 'Cluster2', 'Cluster3'),
+                    name = 'Clusters') +
+  theme(legend.position="top") +
+  labs(title = paste0('Distribuição de ', yname),
+       x = yname,
+       y = 'Frequência Absoluta')
 
+  
+}
 
-from yellowbrick.cluster import KElbowVisualizer
-
-visualizer = KElbowVisualizer(model, k=(3,12), timings=False, metric = 'silhouette')
-
-visualizer.fit(df)        # Fit the data to the visualizer
-visualizer.show()        # Finalize and render the figure
+plot(df_cluster, y, 'Seguro')
+plot(df_cluster, MEN, 'Sexo')
+plot(df_cluster, PRIVATE, 'Uso do Veículo')
+plot(df_cluster, URBAN, 'Região de Condução')
 ```
 
 Usando 3 agrupamentos, temos o seguinte resultado:
@@ -901,7 +923,7 @@ ft <- formattable(data,
 )
 
 # Print the formattable
-print(ft)
+ft
 ```
 
 ```{r}
