@@ -158,25 +158,33 @@ data_test <- data_test[-c(todel_index),]
 
 ## Análise de Agrupamento
 
-Antes de analisarmos o comportamento dos dados no grupo de treino, vamos usar o arquivo baseprincipal.csv para identificar perfis de compradores com base em um análise de agrupamento hierárquica.
+Antes de analisarmos o comportamento dos dados no grupo de treino, vamos usar a concatenação das bases de treino e de teste após o tratamento de inconsistências para identificar perfis de compradores com base em um análise de agrupamento não hierárquica. Usamos a métrica conhecida como si
 
 ```{r}
 library(NbClust)
 library(cluster)
-library(clustertend)
 library(factoextra)
+
+
 
 set.seed(10727865)
 
-df_cluster <- read.csv2('baseprincipal.csv', sep = ',')
+df <- rbind(data, data_test)
+df <- data
+#df_cluster <- read.csv2('baseprincipal.csv', sep = ',')
+df_cluster <- df %>% mutate_at(vars(PRIVATE, URBAN, MEN,y), as.integer)
 df_cluster$AGE <- scale(df_cluster$AGE)
 df_cluster$SENIORITY <- scale(df_cluster$SENIORITY)
 
 
-fviz_nbclust(df_cluster, hcut, method = "silhouette")
+fviz_nbclust(df_cluster, kmeans, method = "silhouette")
+# 
+# hierarchical.clustering <- hclust(dist(df_cluster), method = "complete") 
+# hc4 <- diana(df_cluster)
 
-hierarchical.clustering <- hclust(dist(df_cluster), method = "complete") 
-hc4 <- diana(df_cluster)
+km <- kmeans(df_cluster, centers = 3)
+df_cluster$HCluster <- km$cluster
+
 #plot(hierarchical.clustering)
 
 #names(hierarchical.clustering)
@@ -185,113 +193,89 @@ hc4 <- diana(df_cluster)
 
 
 # Cutting tree by no. of clusters
-fit <- cutree(hierarchical.clustering, k = 2 )
-table(fit)
-#rect.hclust(hierarchical.clustering, k = 3, border = "green")
-df_cluster$HCluster <- fit
+# fit <- cutree(hierarchical.clustering, k = 2 )
+# table(fit)
+# #rect.hclust(hierarchical.clustering, k = 3, border = "green")
+# df_cluster$HCluster <- fit
 ```
 
-A escolha do número de clusters foi feita de modo a gerar o maior número de insights acerca de diferentes agrupamentos.
 
+Analisando o agrupamento em relação a variável AGE, notamos que os clusters parecem estar divididos de acordo com as idades dos indivíduos. Condutores com menos de 40 anos recaem no cluster 2, condutores com 40 até aproximadamente 50 anos representam o cluster 1 e condutores com mais 60 anos foram adicionados ao cluster 3. Já em relação a SENIORITY, não temos claras divisões.
+```{r}
+plot_scatter <- function(df, x,y, yname){
+  
+  
+  arg <- match.call()
+  plot1 <- ggplot(df, aes(x=eval(arg$x), y = eval(arg$y), color=as.factor(HCluster))) +
+    geom_point()+
+    scale_color_manual(values = c("#E69F00", "#56B4E9", "#009E73"),
+                      labels = c('Cluster1', 'Cluster2', 'Cluster3'),
+                      name = 'Clusters') +
+    theme(legend.position="top") +
+    labs(title = paste0('Distribuição de ', yname),
+         x = yname,
+         y = 'Frequência Absoluta')
+  
+  return(plot1)
+}
+
+
+df_cluster$AGE <- df$AGE
+df_cluster$SENIORITY <- df$SENIORITY
+age <- plot_scatter(df_cluster, AGE, y, 'Idade')
+sen <- plot_scatter(df_cluster, SENIORITY, y, 'Tempo de Carta')
+
+age/sen
+
+
+``` 
+
+
+
+Aplicando os agrupamentos para o conjunto de dados, não notamos nenhuma divisão relevante considerando as variáveis seguro, sexo e região de condução. De forma geral, temos uma menor proporção de indivíduos que adquiriram seguro completo, indivíduos do sexo feminino e indivíduos que dirigem pela zona urbana.
 ```{r}
 #| warning: false
 plot <- function(df, var, yname){
 
   
 arg <- match.call()
-ggplot(df, aes(x=eval(arg$var), fill=as.factor(HCluster))) +
+plot1<- ggplot(df, aes(x=eval(arg$var), fill=as.factor(HCluster))) +
   geom_bar(position="stack")+
   scale_fill_manual(values = c("#E69F00", "#56B4E9", "#009E73"),
-                    labels = c('Cluster1', 'Cluster2', 'Cluster3'),
+                    labels = c('Cluster 1', 'Cluster 2', 'Cluster3'),
                     name = 'Clusters') +
   theme(legend.position="top") +
   labs(title = paste0('Distribuição de ', yname),
        x = yname,
        y = 'Frequência Absoluta')
 
-  
+
+ return(plot1) 
 }
 
-plot(df_cluster, y, 'Seguro')
-plot(df_cluster, MEN, 'Sexo')
+seg <- plot(df_cluster, y, 'Seguro')
+sex <- plot(df_cluster, MEN, 'Sexo')
+urban <-plot(df_cluster, URBAN, 'Região de Condução')
+
+library(patchwork)
+
+seg|sex|urban
+```
+
+Já para PRIVATE, temos uma substancial diferença entre indivíduos que usam veículo privado
+
+```{r}
 plot(df_cluster, PRIVATE, 'Uso do Veículo')
-plot(df_cluster, URBAN, 'Região de Condução')
-```
 
-Usando 3 agrupamentos, temos o seguinte resultado:
-
-```{python}
-
-cluster = AgglomerativeClustering(n_clusters = 3,
-                                  distance_threshold=None,
-                                  compute_distances = True,
-                                  linkage='complete')
-model = cluster.fit(df_scaled)
-
-df_cluster = df.copy()
-df_cluster['HCluster'] = model.labels_.astype(str)
-df_cluster.sort_values(by = 'HCluster', inplace=True)
-
-print('Número de clusters: ', len(df_cluster['HCluster'].unique()))
-
-for i in df_cluster['HCluster'].unique():
-    siz = len(df_cluster[df_cluster['HCluster'] == i])
-    print(f'Cluster {i} tem {siz} indivíduos')
+df_private <-  df_cluster %>% filter(PRIVATE == 0)
 
 ```
 
-Nos resta agora interpretar os agrupamentos com bases nas variáveis:
-
-```{python}
-import seaborn as sns
-import matplotlib.pyplot as plt
-from matplotlib import rcParams
-
-# figure size in inches
-def plots(data, x_axis, y_axis, hue,yaxis_title, xaxis_name, yaxis_name, colorblind = False):
-        if colorblind:
-                sns.set_palette(sns.color_palette("colorblind",4))
-        else: 
-                sns.set_palette(sns.color_palette("tab10",4)) 
 
 
 
-        p2 = sns.histplot(data = data,
-                        x = y_axis,
-                        hue = hue, 
-                        discrete = True,
-                        multiple = 'stack')
-        p2.set(title = f'Distribuição {yaxis_title}',
-                xlabel = yaxis_name,
-                ylabel = 'Frequência')
-        
-        aux01 = len(data[(data['HCluster'] == '0') & (data[y_axis] == 0)])
-        aux01_total = len(data[(data['HCluster'] == '0')])
 
 
-        aux02 = len(data[(data['HCluster'] == '1') & (data[y_axis] == 0)])
-        aux02_total = len(data[(data['HCluster'] == '1')])
-
-
-        aux03 = len(data[(data['HCluster'] == '2') & (data[y_axis] == 0)])
-        aux03_total = len(data[(data['HCluster'] == '2')])
-
-
-        c1 = f'Cluster 1: {aux01}/{aux01_total}'
-        c2 = f'Cluster 2: {aux02}/{aux02_total}'
-        c3 = f'Cluster 0: {aux03}/{aux03_total}'
-        plt.legend(title = f'Observações com {yaxis_title} igual a 0',labels=[c1, c2,c3], bbox_to_anchor=(-0.1,1.))
-        rcParams['figure.figsize'] = 5.7,10.27
-        
-        plt.show()
-```
-
-```{python}
-
-
-
-plots(df_cluster, 'AGE', 'y', 'HCluster', 'Seguro', 'Idade', 'Cobertura Completa(0 - Não, 1 - Sim)')
-```
 
 ## Correlações
 
