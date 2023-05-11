@@ -4,7 +4,7 @@ format: pdf
 editor: visual
 ---
 
-```{r setup, include=TRUE, cache = FALSE}
+```{r setup, include=TRUE, cache = FALSE, echo = FALSE}
 library(knitr)
 
 opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
@@ -145,137 +145,18 @@ data <- data[-c(todel_index),]
 
 ```
 
-Igualmente para o conjunto de teste:
+Igualmente para o conjunto de teste, encontramos uma observação inconsistente e a deletamos:
 
 ```{r}
 inconsist2 <- data_test %>% 
   filter(AGE < 18)
 
+inconsist2
+
 todel_index <-which(data_test$AGE < 18)
 data_test <- data_test[-c(todel_index),]
 
 ```
-
-## Análise de Agrupamento
-
-Antes de analisarmos o comportamento dos dados no grupo de treino, vamos usar a concatenação das bases de treino e de teste após o tratamento de inconsistências para identificar perfis de compradores com base em um análise de agrupamento não hierárquica. Usamos a métrica conhecida como si
-
-```{r}
-library(NbClust)
-library(cluster)
-library(factoextra)
-
-
-
-set.seed(10727865)
-
-df <- rbind(data, data_test)
-df <- data
-#df_cluster <- read.csv2('baseprincipal.csv', sep = ',')
-df_cluster <- df %>% mutate_at(vars(PRIVATE, URBAN, MEN,y), as.integer)
-df_cluster$AGE <- scale(df_cluster$AGE)
-df_cluster$SENIORITY <- scale(df_cluster$SENIORITY)
-
-
-fviz_nbclust(df_cluster, kmeans, method = "silhouette")
-# 
-# hierarchical.clustering <- hclust(dist(df_cluster), method = "complete") 
-# hc4 <- diana(df_cluster)
-
-km <- kmeans(df_cluster, centers = 3)
-df_cluster$HCluster <- km$cluster
-
-#plot(hierarchical.clustering)
-
-#names(hierarchical.clustering)
-#hierarchical.clustering$call
-
-
-
-# Cutting tree by no. of clusters
-# fit <- cutree(hierarchical.clustering, k = 2 )
-# table(fit)
-# #rect.hclust(hierarchical.clustering, k = 3, border = "green")
-# df_cluster$HCluster <- fit
-```
-
-
-Analisando o agrupamento em relação a variável AGE, notamos que os clusters parecem estar divididos de acordo com as idades dos indivíduos. Condutores com menos de 40 anos recaem no cluster 2, condutores com 40 até aproximadamente 50 anos representam o cluster 1 e condutores com mais 60 anos foram adicionados ao cluster 3. Já em relação a SENIORITY, não temos claras divisões.
-```{r}
-plot_scatter <- function(df, x,y, yname){
-  
-  
-  arg <- match.call()
-  plot1 <- ggplot(df, aes(x=eval(arg$x), y = eval(arg$y), color=as.factor(HCluster))) +
-    geom_point()+
-    scale_color_manual(values = c("#E69F00", "#56B4E9", "#009E73"),
-                      labels = c('Cluster1', 'Cluster2', 'Cluster3'),
-                      name = 'Clusters') +
-    theme(legend.position="top") +
-    labs(title = paste0('Distribuição de ', yname),
-         x = yname,
-         y = 'Frequência Absoluta')
-  
-  return(plot1)
-}
-
-
-df_cluster$AGE <- df$AGE
-df_cluster$SENIORITY <- df$SENIORITY
-age <- plot_scatter(df_cluster, AGE, y, 'Idade')
-sen <- plot_scatter(df_cluster, SENIORITY, y, 'Tempo de Carta')
-
-age/sen
-
-
-``` 
-
-
-
-Aplicando os agrupamentos para o conjunto de dados, não notamos nenhuma divisão relevante considerando as variáveis seguro, sexo e região de condução. De forma geral, temos uma menor proporção de indivíduos que adquiriram seguro completo, indivíduos do sexo feminino e indivíduos que dirigem pela zona urbana.
-```{r}
-#| warning: false
-plot <- function(df, var, yname){
-
-  
-arg <- match.call()
-plot1<- ggplot(df, aes(x=eval(arg$var), fill=as.factor(HCluster))) +
-  geom_bar(position="stack")+
-  scale_fill_manual(values = c("#E69F00", "#56B4E9", "#009E73"),
-                    labels = c('Cluster 1', 'Cluster 2', 'Cluster3'),
-                    name = 'Clusters') +
-  theme(legend.position="top") +
-  labs(title = paste0('Distribuição de ', yname),
-       x = yname,
-       y = 'Frequência Absoluta')
-
-
- return(plot1) 
-}
-
-seg <- plot(df_cluster, y, 'Seguro')
-sex <- plot(df_cluster, MEN, 'Sexo')
-urban <-plot(df_cluster, URBAN, 'Região de Condução')
-
-library(patchwork)
-
-seg|sex|urban
-```
-
-Já para PRIVATE, temos uma substancial diferença entre indivíduos que usam veículo privado
-
-```{r}
-plot(df_cluster, PRIVATE, 'Uso do Veículo')
-
-df_private <-  df_cluster %>% filter(PRIVATE == 0)
-
-```
-
-
-
-
-
-
 
 ## Correlações
 
@@ -322,7 +203,7 @@ De forma geral, as correlações entre as covariáveis ou são fracas ou inexist
 
 ## Visão Geral dos Dados
 
-Inicialmente, notamos que os dados são relativamente desbalanceados em relação a variável resposta, já que temos mais de 50% de observações para y = 0. As covariáveis binárias também apresentam desbalanceio, sendo caso mais evidente da variável PRIVATE.
+A seguir verificamos a distribuição dos dados na base de treino. Inicialmente, notamos que os dados são relativamente desbalanceados em relação a variável resposta, já que temos mais de 50% de observações para y = 0. As covariáveis binárias também apresentam desbalanceio, sendo caso mais evidente da variável PRIVATE.
 
 ```{r}
 #| warning: false
@@ -364,7 +245,7 @@ print(paste('Indíviduos com cobertura completa',nrow(filter(data, y == '1'))))
 
 ### Seguro vs região onde dirige (URBAN)
 
-A maior parte dos indivíduos dirigem em áreas rurais e não adquiriram o seguro completo. Também não notamos diferenças significativas entre a proporção de indivíduos com seguro completo que dirigem na área urbana.
+A maior parte dos indivíduos dirigem em áreas rurais e não adquiriram o seguro completo. Também não notamos diferenças significativas entre a proporção de indivíduos com seguro completo que dirigem na área urbana, porém a maior parte dos indivíduos que dirigem na área rural não adquiriram seguro completo.
 
 ```{r}
 hist_urban<- ggplot(data %>% count(y, URBAN) %>%    
@@ -395,7 +276,7 @@ scale_fill_manual(guide_legend(title="Privado"), values = c("#7570B3", "#E7298A"
 hist_private
 ```
 
-Se filtrarmos os indivíduos que usam veículos de forma comercial, também notamos que todos são do sexo masculino.
+Se filtrarmos os indivíduos que usam veículos de forma comercial, também vemos que todos são do sexo masculino e não adquiriram o seguro completo.
 
 ```{r}
 df <- data %>% 
@@ -436,9 +317,9 @@ m1_logit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
 summary(m1_logit)
 ```
 
-Verificamos agora o ajuste do modelo utilizando os resíduos de quantil. De forma geral, se o modelo faz um bom ajuste dos dados, esperamos que apenas 5% dos pontos se encontrem fora do envelope simulado. Pelo envelope simulado gerado abaixo não notamos fortes desvios.
+Verificamos agora o ajuste do modelo utilizando os resíduos de quantil randomizados. De forma geral, se o modelo faz um bom ajuste dos dados, esperamos que apenas 5% dos pontos se encontrem fora do envelope simulado. Pelo envelope simulado gerado abaixo não notamos fortes desvios.
 
-```{r, message=FALSE}
+```{r, message=FALSE, results='hide', fig.keep='all', echo=FALSE}
 #| warning: false
 #| echo: false
 glmtoolbox::envelope(m1_logit)
@@ -457,9 +338,10 @@ Epi::ROC(m1_logit$fitted.values, data$y, plot= "ROC")
 
 Ao utlizar a função de ligação probito, temos um modelo também sem indícios de mau ajuste e com área sob a curva também de 0.785.
 
-```{r, message=FALSE, results='hide', fig.keep='all'}
+```{r, message=FALSE, results='hide', fig.keep='all', echo=FALSE}
 m1_probit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = "probit"), data = data_reg)
+
 
 glmtoolbox::envelope(m1_probit)
 
@@ -473,7 +355,7 @@ Epi::ROC(m1_probit$fitted.values, data$y, plot= "ROC")
 
 Usando a função de ligação Cauchit:
 
-```{r, message=FALSE}
+```{r, message=FALSE, results='hide', fig.keep='all', echo=FALSE}
 #| warning: false
 #| echo: false
 m1_cauchit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
@@ -487,20 +369,16 @@ graph <- glmtoolbox::envelope(m1_cauchit)
 Epi::ROC(m1_cauchit$fitted.values, data$y, plot= "ROC")
 ```
 
-```{r}
-graph
-```
-
 ### Cloglog
 
 Para a função de ligação Cloglog:
 
-```{r}
+```{r, message=FALSE, results='hide', fig.keep='all', echo=FALSE}
 m1_cloglog <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = "cloglog"), data = data_reg)
 
 
-#summary(m1_cloglog)
+summary(m1_cloglog)
 glmtoolbox::envelope(m1_cloglog)
 ## Binomial model
 Epi::ROC(m1_cloglog$fitted.values, data$y, plot= "ROC")
@@ -512,7 +390,7 @@ Epi::ROC(m1_cloglog$fitted.values, data$y, plot= "ROC")
 
 O modelo com função de ligação loglog:
 
-```{r}
+```{r, message=FALSE, results='hide', fig.keep='all', echo=FALSE}
 
 # Geradora para a função de ligação loglog
 loglog <- function( ) structure(list(
@@ -602,7 +480,7 @@ Nota-se que o AIC diminui com a retirada de ambos os pontos. Sem uma base teóri
 
 ## Predição no Conjunto de Teste
 
-Abaixo, calculamos as métricas de acurácia, precisão, recall e f1score para os modelos loglog completo e reduzido.
+Abaixo, calculamos as métricas de acurácia, precisão, recall e f1score para os modelos loglog completo e reduzido. Os resultados são apresentados no momento oportuno no relatório.
 
 ```{r}
 #cálculo de predição no conjunto de teste
@@ -655,6 +533,7 @@ loglog_recall_test <- loglog_res_test[3]
 # Random Forest
 
 ```{r}
+#| echo: false
 #| warning: false
 library(randomForest)
 ```
@@ -663,7 +542,7 @@ O algoritmo de RandomForest trata-se de uma combinação de árvores de classifi
 
 Inicialmente, usamos a função tuneRF para encontrar o valor de mtry (número de variáveis aleatoriamente amostradas para ajustar as árvores).
 
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 t <- tuneRF(data_reg[,-1], data_reg[,1],
        stepFactor = 0.5,
        plot = TRUE,
@@ -682,7 +561,7 @@ print(rf)
 
 No conjunto de treino, temos um taxa de erro de 31.29%, vemos também que o modelo tende a errar mais para indivíduos que possuem cobertura completa do seguro. Vejamos o desempenho do modelo no conjunto de teste:
 
-```{r}
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
 p2 <- predict(rf, data_test)
 cf_test <- caret::confusionMatrix(p2, data_test$y)
 cf_test
@@ -713,6 +592,7 @@ importance(rf)
 # Soluções Bayesianas
 
 ```{r}
+#| echo: false 
 library(R2jags)
 ```
 
@@ -777,7 +657,8 @@ jagsData <- list(N = N, y = data_scaled$y,
     URBAN = data_scaled$URBAN, SEN = data_scaled$SENIORITY    ,AGE = data_scaled$AGE, MEN = data_scaled$MEN)
 ```
 
-```{r}
+```{r, echo=FALSE, message=FALSE}
+#| echo: false
 m1_blogit <- jags(data=jagsData,model.file='models/m1_cauchit.bug',
                    param=c('beta0','beta_urban', 'beta_sen', 'beta_age', 'beta_men', 'lambda'),
                    n.chains=2, n.iter=30000, n.burnin=5000, n.thin=10)
@@ -880,7 +761,7 @@ A seguir,testamos o poder de predição dos modelos loglog com o conjunto de dad
 
 -   **F1-Score:** média harmônica entre precisão e recall
 
-Para o caso do seguro, podemos incorrer em erros de falsos positivos(classificar como 1 quando o correto seria 0) ou falsos negativos (classificar como 0 quando o correto seria 1). O primeiro caso ocasionaria a abordagem de clientes com baixa propensão a adquirir o seguro completo, já o segundo resultaria em não abordar clientes com alto potencial de comprar o seguro. Como o segundo tipo de erro é financeiramente mais danoso a uma companhia, usaremos o recall como critério de escolha principal para o melhor modelo, uma vez que um valor alto recall significa um baixo número de falsos negativos.
+Para o caso do seguro, podemos incorrer em erros de falsos positivos(classificar como 1 quando o correto seria 0) ou falsos negativos (classificar como 0 quando o correto seria 1). O primeiro caso ocasionaria a abordagem de clientes com baixa propensão a adquirir o seguro completo, já o segundo resultaria em não abordar clientes com alto potencial de comprar o seguro. Como o segundo tipo de erro é financeiramente mais danoso a uma companhia, usaremos o recall como critério de escolha preferencial para o melhor modelo, uma vez que um valor alto recall significa um baixo número de falsos negativos.
 
 ```{r}
 # Load the required libraries
@@ -907,127 +788,30 @@ ft <- formattable(data,
 )
 
 # Print the formattable
-ft
+print(ft)
 ```
+
+Notamos que os modelos loglog tem desempenhos similares em todas as métricas após o arredondamento. Tomando o recall como referência, esses modelos mostraram-se como os melhores para a predição de indivíduos com maior probabilidade de adquirir o seguro completo. Em segundo lugar, temos o modelo de RandomForest que é o modelo com maior F1-Score, indicando que este é o mais balanceado em relação ao número de falsos positivos e falsos negativos. Por fim, o modelo baysiano teve o pior desempenho em todas as métricas.
+
+Levando estes resultados em conta, podemos sugerir o modelo loglog como o mais apropriado para reduzir falsos negativos e interpretar o impacto dos coeficientes (AGE, PRIVATE,URBAN e etc) na propensão dos indivíduos em adquirir seguro completo. Se a interpretação dos coeficientes não é necessária e é de interesse minimizar tanto falsos positivos quanto negativos, o modelo de RandomForest é mais recomendado.
+
+### 
+
+# Bibliografia
+
+1.  BÁZAN, J.L.Power and reversal power links for binary\
+    regressions: An application for motor insurance\
+    policyholders. **Wiley Online Library,** wileyonlinelibrary.com, 23/11/2016
+
+2.  **Bayesian Logistic Regression Tutorial**, https://www.flutterbys.com.au/stats/tut/tut10.5b.html, **Acessado por último em** :11/05/2023
+
+3.  SHUNG, Koo Ping, **Accuracy, Precision, Recall or F1?**, https://towardsdatascience.com/accuracy-precision-recall-or-f1-331fb37c5cb9. **Acessado por último em:** 11/05/2023
+
+4.  BROWLEE, Jason, **Tune Machine Learning Algorithms in R (random forest case study)**, https://machinelearningmastery.com/tune-machine-learning-algorithms-in-r/, **Acesso por último em:** 11/05/2023.
+
+
+
 
 ```{r}
 knitr::knit_exit()
 ```
-
-# Reamostrando a base de dados
-
-Como demonstrado na análise exploratória da base de treino, temos um desbalanceio entre o número de observações referentes a indivíduos que adquiriram ou não o seguro. Podemos reamostrar a base principal de 2000 observações usando o algoritmo SMOTE para gerar novas amostras para a classe minoritária (indivíduos que possuem seguro completo), de modo a balancear o conjunto de dados.
-
-```{r}
-
-########### Código para reamostrar classe minoritária#########
-# set.seed(10727865)
-# #| warning: false
-# #install.packages('smotefamily')
-# library(smotefamily)
-# 
-# data_full <- read.csv2('baseprincipal.csv', sep = ',')
-# 
-# 
-# data_smote <- data_full %>%
-#   mutate_at(vars("URBAN", "MEN", "PRIVATE"), as.factor)
-#   
-# 
-# smote <- SMOTE(data_full[,-1], data_full$y, dup_size = 1)
-# df_oversampled <- smote$data
-# 
-# write.csv(df_oversampled,'baseprincipalreamostrada.csv', sep = '/t', row.names = F)
-######################################################3
-```
-
-Após a aplicação do algoritmo, temos um número mais equilibrado de indivíduos, a nova distribuição é apresentada abaixo.
-
-```{r}
-
-
-df_oversampled <- read.csv2('baseprincipalreamostrada.csv', sep = ',')
-
-
-hist(as.integer(df_oversampled$class), col='coral', main = 'Distribuição de Seguro após SMOTE', xlab = 'Seguro',
-     ylab = 'Frequência')
-table(df_oversampled$class)
-
-
-overdf_reg <- df_oversampled %>%
-  mutate_at(vars("URBAN", "MEN", "PRIVATE", "SENIORITY", "AGE"), as.integer) %>%
-  mutate_at(vars("URBAN", "MEN", "PRIVATE", "class"), as.factor) %>% 
-  rename('y' = 'class')
-
-
-
-```
-
-## 
-
-## Divisão Treino e Teste
-
-Dividimos novamente o conjunto de dados entre treino e teste.
-
-```{r}
-
-
-########### Código para gerar teste e treino ###########
-# set.seed(10727865)
-# train_idx <- caret::createDataPartition(overdf_reg$y, p =0.7, list = FALSE)
-# 
-# train_df <- overdf_reg[train_idx,]
-# test_df <- overdf_reg[-train_idx,]
-
-
-# write.csv(train_df,'basetreinoreamostrada.csv', sep = '/t', row.names = F)
-# 
-# write.csv(test_df,'basetestereamostrada.csv', sep = '/t', row.names = F)
-#######################################################
-
-```
-
-```{r}
-train_df  <- read.csv2('basetreinoreamostrada.csv', sep = ',')
-test_df  <- read.csv2('basetestereamostrada.csv', sep = ',')
-
-
-
-
-train_df <- train_df %>%
-  mutate_at(vars("URBAN", "MEN", "PRIVATE", "SENIORITY", "AGE"), as.integer) %>%
-  mutate_at(vars("URBAN", "MEN", "PRIVATE", "y"), as.factor)
-
-
-test_df <- test_df %>%
-  mutate_at(vars("URBAN", "MEN", "PRIVATE", "SENIORITY", "AGE"), as.integer) %>%
-  mutate_at(vars("URBAN", "MEN", "PRIVATE", "y"), as.factor)
-```
-
-## Modelos Lineares Generalizados (Clássicos)
-
-```{r}
-m0_over <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
- family = binomial(link = 'logit'), data = train_df)
-
-summary(m0_over)
-```
-
-```{r}
-hnp.fit.modell = hnp(m0_over, print.on=TRUE, plot=FALSE,
-halfnormal=F)
-## Binomial model
-plot(hnp.fit.modell,main="Modelo Logito",las=1,pch=20,cex=1,col=c(1,1,1,2))
-```
-
-```{r}
-y_pred <- predict(m0_over,newdata = test_df, type = 'response')
-roc_logit <- Epi::ROC(y_pred, test_df$y, plot= T)
-
-logitra_res_test <- accuracy(m0_over, roc_logit, test_df )
-logitra_acc_test <- logitra_res_test[1]
-logitra_f1_test<-  logitra_res_test[4]
-logitra_precision_test <- logitra_res_test[2]
-logitra_recall_test <- logitra_res_test[3]
-```
-
-### 
