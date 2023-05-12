@@ -1,5 +1,5 @@
 ---
-title: "Análise Exploratória"
+title: "Desafio 1"
 format: pdf
 editor: visual
 ---
@@ -33,6 +33,10 @@ library(Epi)
 library(car)
 library(R2jags)
 library(coda)
+library(formattable)
+library(randomForest)
+library(lattice)
+
 ```
 
 # Amostragem da base e separação treino/teste
@@ -212,6 +216,12 @@ library(lares)
 freqs_df(data, plot = T)
 ```
 
+Abaixo, temos um resumo quantitativo dos dados. A parte das variávies binárias, notamos que os indivíduos da base de treino tem em média 45 anos e 10 anos de carta de motorista.
+
+```{r}
+summary(data)
+```
+
 ## Distribuição do Seguro por Covariáveis
 
 Nessa seção, avaliamos quantitativamente a relação entre covariáveis e variável resposta.
@@ -284,6 +294,77 @@ df <- data %>%
 df
 ```
 
+Avaliando a idade em relação as variáveis binárias, vemos que indivíduos que adquirem o seguro completo ou dirigem em área urbana tem em média uma menor idade. Por outro lado, indivíduos que fazem uso privado do automóvel ou são do sexo masculino são mais velhos que seus contrapontos.
+
+```{r}
+p1 <- ggplot(data, aes(x=as.factor(y), y=AGE)) + 
+  geom_boxplot(notch=FALSE, fill = "#1B9E77", color = 'black') +
+  scale_x_discrete(labels = c('Sem seguro', 'Seguro Completo'))+
+  labs(title = 'Idade por Seguro',
+       x = 'Seguro',
+       y = 'Idade')
+
+p2 <- ggplot(data, aes(x=as.factor(URBAN), y=AGE)) + 
+  geom_boxplot(notch=FALSE,fill = "#D95F02", color = 'black') +
+    scale_x_discrete(labels = c('Área Rural', 'Área Urbana'))+ 
+  labs(title = 'Idade por Região de Condução',
+       x = 'Região de Condução',
+       y = 'Idade')
+
+p3 <- ggplot(data, aes(x=as.factor(PRIVATE), y=AGE)) + 
+  geom_boxplot(notch=FALSE,fill = "#7570B3", color = 'black') +
+    scale_x_discrete(labels = c('Uso Comercial', 'Uso Privado'))+
+  labs(title = 'Idade por Uso do Automóvel',
+       x = 'Uso do Automóvel',
+       y = 'Idade')
+
+p4 <- ggplot(data, aes(x=as.factor(MEN), y=AGE, color = as.factor(y))) + 
+  geom_boxplot(notch=FALSE,fill = "#E7298A", color = 'black') +
+    scale_x_discrete(labels = c('Feminino', 'Masculino'))+
+  labs(title = 'Idade por Sexo',
+       x = 'Sexo',
+       y = 'Idade')
+
+(p1|p2)/(p3|p4)
+
+
+
+```
+
+Para o tempo de carteira, notamos que indivíduos que não possuem seguro completo ou que fazem uso comercial do automóvel ou que sejam do sexo feminino, são em média mais novos do que seus opostos. Já indivíduos que dirigem pela área rural, parecem ter uma leve tendência a serem mais velhos do que indivíduos que dirigem na área urbana.
+
+```{r}
+p1 <- ggplot(data, aes(x=as.factor(y), y=SENIORITY)) + 
+  geom_boxplot(notch=FALSE, fill = "#666666", color = 'black') +
+  scale_x_discrete(labels = c('Sem seguro', 'Seguro Completo'))+
+  labs(title = 'Tempo de Carteira por Seguro',
+       x = 'Seguro',
+       y = 'Tempo de Carteira')
+
+p2 <- ggplot(data, aes(x=as.factor(URBAN), y=SENIORITY)) + 
+  geom_boxplot(notch=FALSE,fill = "#F8766D", color = 'black') +
+    scale_x_discrete(labels = c('Área Rural', 'Área Urbana'))+ 
+  labs(title = 'Tempo de Carteira por Região de Condução',
+       x = 'Região de Condução',
+       y = 'Tempo de Carteira')
+
+p3 <- ggplot(data, aes(x=as.factor(PRIVATE), y=SENIORITY)) + 
+  geom_boxplot(notch=FALSE,fill = "#00C1A3", color = 'black') +
+    scale_x_discrete(labels = c('Uso Comercial', 'Uso Privado'))+
+  labs(title = 'Tempo de Carteira por Uso do Automóvel',
+       x = 'Uso do Automóvel',
+       y = 'Tempo de Carteira')
+
+p4 <- ggplot(data, aes(x=as.factor(MEN), y=SENIORITY)) + 
+  geom_boxplot(notch=FALSE,fill = "#35A2FF", color = 'black') +
+    scale_x_discrete(labels = c('Feminino', 'Masculino'))+
+  labs(title = 'Tempo de Carteira por Sexo',
+       x = 'Sexo',
+       y = 'Tempo de Carteira')
+
+(p1|p2)/(p3|p4)
+```
+
 # Modelos Lineares Generalizados (Clássicos)
 
 Nessa seção, temos o objetivo de ajustar o melhor modelo para predizer, dado as informações do indivíduo, se ele possui ou não cobertura completa do seguro.
@@ -345,10 +426,14 @@ m1_probit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
 
 glmtoolbox::envelope(m1_probit)
 
-summary(m1_probit)
+#summary(m1_probit)
 
 ## Binomial model
 Epi::ROC(m1_probit$fitted.values, data$y, plot= "ROC")
+```
+
+```{r, warning=FALSE, message=FALSE}
+summary(m1_probit)
 ```
 
 ### Cauchit
@@ -369,6 +454,10 @@ graph <- glmtoolbox::envelope(m1_cauchit)
 Epi::ROC(m1_cauchit$fitted.values, data$y, plot= "ROC")
 ```
 
+```{r, warning=FALSE, message=FALSE}
+summary(m1_cauchit)
+```
+
 ### Cloglog
 
 Para a função de ligação Cloglog:
@@ -378,13 +467,14 @@ m1_cloglog <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = "cloglog"), data = data_reg)
 
 
-summary(m1_cloglog)
 glmtoolbox::envelope(m1_cloglog)
 ## Binomial model
 Epi::ROC(m1_cloglog$fitted.values, data$y, plot= "ROC")
 ```
 
-### 
+```{r, warning=FALSE, message=FALSE}
+summary(m1_cloglog)
+```
 
 ### Loglog
 
@@ -420,6 +510,10 @@ summary(m1_loglog)
 ## Binomial model
 glmtoolbox::envelope(m1_loglog)
 Epi::ROC(m1_loglog$fitted.values, data$y, plot= "ROC")
+```
+
+```{r, warning=FALSE, message=FALSE}
+summary(m1_loglog)
 ```
 
 ### AIC
@@ -532,12 +626,6 @@ loglog_recall_test <- loglog_res_test[3]
 
 # Random Forest
 
-```{r}
-#| echo: false
-#| warning: false
-library(randomForest)
-```
-
 O algoritmo de RandomForest trata-se de uma combinação de árvores de classificação. Os resultados gerados em diferentes árvores são posteriomente agregados em um único, de forma a reduzir a chance de superajuste (overfitting) e aumentar a acurácia.
 
 Inicialmente, usamos a função tuneRF para encontrar o valor de mtry (número de variáveis aleatoriamente amostradas para ajustar as árvores).
@@ -590,11 +678,6 @@ importance(rf)
 ```
 
 # Soluções Bayesianas
-
-```{r}
-#| echo: false 
-library(R2jags)
-```
 
 ## Modelo Cauchit
 
@@ -665,7 +748,6 @@ m1_blogit <- jags(data=jagsData,model.file='models/m1_cauchit.bug',
 ```
 
 ```{r}
-library(lattice)
 
 mcmc.samples <- as.mcmc(m1_blogit)
 densityplot(mcmc.samples)
@@ -765,7 +847,6 @@ Para o caso do seguro, podemos incorrer em erros de falsos positivos(classificar
 
 ```{r}
 # Load the required libraries
-library(formattable)
 
 # Create a data frame with the data
 data <- data.frame(
@@ -808,9 +889,6 @@ Levando estes resultados em conta, podemos sugerir o modelo loglog como o mais a
 3.  SHUNG, Koo Ping, **Accuracy, Precision, Recall or F1?**, https://towardsdatascience.com/accuracy-precision-recall-or-f1-331fb37c5cb9. **Acessado por último em:** 11/05/2023
 
 4.  BROWLEE, Jason, **Tune Machine Learning Algorithms in R (random forest case study)**, https://machinelearningmastery.com/tune-machine-learning-algorithms-in-r/, **Acesso por último em:** 11/05/2023.
-
-
-
 
 ```{r}
 knitr::knit_exit()
