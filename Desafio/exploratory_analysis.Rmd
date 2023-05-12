@@ -1,7 +1,24 @@
 ---
-title: "Desafio 1"
+#title: "Desafio 1"
 format: pdf
 editor: visual
+---
+
+\begin{center}
+\vspace*{2cm}
+\text{\huge UNIVERSIDADE DE SÃO PAULO}
+\end{center}
+\vspace*{1.5cm}
+\begin{center}
+\textbf{{\huge SME 0878 Mineração Estatística de Dados\\}}
+\vspace*{2cm}
+\textbf{{\huge Desafio 1 - Coverage\\}}
+\vspace*{5cm}
+\textbf{{\Large Pedro Vinícius Alves Silva - 10727865\\}}
+\textbf{{alvespedro769@usp.br\\}}
+\end{center}
+\setcounter{page}{0}
+\newpage
 ---
 
 ```{r setup, include=TRUE, cache = FALSE, echo = FALSE}
@@ -9,6 +26,27 @@ library(knitr)
 
 opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
 knitr::opts_chunk$set(message = FALSE)
+```
+
+```{r}
+#Bibliotecas requeridas
+# require(ggplot2)
+# require(GGally)
+# require(dplyr)
+# require(tibble)
+# require(RColorBrewer)
+# require(boot)
+# require(ggsci)
+# require(viridis)
+# require(patchwork)
+# require(hnp)
+# require(Epi)
+# require(car)
+# require(R2jags)
+# require(coda)
+# require(formattable)
+# require(randomForest)
+# require(lattice)
 ```
 
 ```{r}
@@ -293,6 +331,8 @@ df <- data %>%
   filter(PRIVATE == 0)
 df
 ```
+
+### Idade e Tempo de Carteira
 
 Avaliando a idade em relação as variáveis binárias, vemos que indivíduos que adquirem o seguro completo ou dirigem em área urbana tem em média uma menor idade. Por outro lado, indivíduos que fazem uso privado do automóvel ou são do sexo masculino são mais velhos que seus contrapontos.
 
@@ -647,7 +687,7 @@ print(rf)
 #plot(rf)
 ```
 
-No conjunto de treino, temos um taxa de erro de 31.29%, vemos também que o modelo tende a errar mais para indivíduos que possuem cobertura completa do seguro. Vejamos o desempenho do modelo no conjunto de teste:
+No conjunto de treino, temos um taxa de erro de 31.29%, vemos também que o modelo tende a errar mais para indivíduos que possuem cobertura completa do seguro. Abaixo calculamos as métricas de desempenho do modelo para serem comparadas.
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE}
 p2 <- predict(rf, data_test)
@@ -664,7 +704,7 @@ precision_forest <- as.double(cf_test$byClass[3])
 f1_forest <- 2*(recall_forest*precision_forest)/(precision_forest+recall_forest)
 ```
 
-Temos uma acurácia de 0.72 e um F1-Score de 0.78.
+Também olhamos para a importância das covariáveis na classificação usando o Decréscimo Médio no Índice de Gini e vemos que a idade (AGE) e tempo de carteira (SENIORITY) parecem serem os fatores mais determinantes para um indivíduo adquirir o seguro completo.
 
 ```{r}
 #hist(treesize(rf),
@@ -747,13 +787,13 @@ m1_blogit <- jags(data=jagsData,model.file='models/m1_cauchit.bug',
                    n.chains=2, n.iter=30000, n.burnin=5000, n.thin=10)
 ```
 
+Analisamos os diagnósticos de convergência e não encontramos nenhum indicativo de não convergência. Apresentamos também os gráfico das posteriores dos parâmetros:
+
 ```{r}
 
 mcmc.samples <- as.mcmc(m1_blogit)
-densityplot(mcmc.samples)
-
-HPDinterval(mcmc.samples)[1]
 traceplot(mcmc.samples)
+densityplot(mcmc.samples)
 
 ```
 
