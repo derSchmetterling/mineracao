@@ -1,0 +1,178 @@
+---
+title: "Análise Dados Retrospectivos"
+subtitle: "Data: 16/05/2023"
+format:
+  html:
+    embed-resources: true
+    fontsize: 15pt
+    theme: sandstone
+    #code-fold: true
+    echo: false
+    number-sections: false
+    code-tools: true
+    toc: true
+    df-print: paged
+editor: visual
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Bibliotecas
+
+```{r bibliotecas, warning=FALSE, message=FALSE}
+
+library(lares)
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(GGally)
+```
+
+# Amostragem e divisão treino e teste
+
+```{r}
+data <-  read_excel('ChoiceBehaviour.xlsx')
+summary(data)
+```
+
+```{r}
+#| echo: false
+set.seed(10727865)
+sampled_df <- sample_n(data, 2000)
+write.csv(sampled_df,'baseprincipal.csv', sep = '/t', row.names = F)
+
+sampled_df <- data.frame(sampled_df)
+
+sampled_df[c(1,2),]
+```
+
+```{r}
+#| echo: false
+train_idx <- caret::createDataPartition(sampled_df$Resposta, p =0.7, list = FALSE)
+
+train_df <- sampled_df[train_idx,]
+test_df <- sampled_df[-train_idx,]
+
+write.csv(train_df,'basetreino.csv', sep = '/t', row.names = F)
+
+write.csv(test_df,'baseteste.csv', sep = '/t', row.names = F)
+```
+
+# Análise Exploratória
+
+## Descrição do problema
+
+Temos um conjunto de dados referentes ao aluguel de três máquinas por agricultores, as colunas são referentes a:
+
+-   **Regiao:** variável discreta representando local onde moram os agricultores
+
+-   **Prima:** variável discreta representando valor que o agricultor precisa pagar para reparar a máquina
+
+-   **CustoProduto:** variável inteira positiva representando custo estimado do maquinário no momento do aluguel pelo agricultor
+
+-   **Pmaquinabase:** variável contínua positiva representando o preço do aluguel da máquina base para dar cobertura ao assegurado
+
+-   **Pmaquina1:** variável contínua positiva representando o
+    preço do aluguel da máquina 1 ofertado ao agricultor
+
+-   **Pmaquina2:** variável contínua positiva representando o
+
+    preço do aluguel da máquina 2 ofertado ao agricultor
+
+-   **Pmaquina3:** variável contínua positiva representando o
+
+    preço do aluguel da máquina 3 ofertado ao agricultor
+
+-   **Cmaquina1:** variável contínua positiva representando o
+    custo do aluguel da máquina 1 ofertado ao agricultor
+
+-   **Cmaquina2:** variável contínua positiva representando o
+
+    custo do aluguel da máquina 2 ofertado ao agricultor
+
+-   **Cmaquina3:** variável contínua positiva representando o
+
+    custo do aluguel da máquina 3 ofertado ao agricultor
+
+-   **Resposta:** variável discreta, assume o valor de 0 quando o agricultor não aluga nenhum máquina ou o número relativa a qual máquina ele alugou (1,2, ou 3).
+
+O agricultor conhece apenas o valor de reparo das máquina (Prima) e o preço de aluguel de cada máquina (Pmaquina1,Pmaquina2,Pmaquina3).
+
+```{r}
+data_train <-  read.csv('basetreino.csv')
+data_train <- data_train %>% 
+        mutate_at(vars(CustoProduto), as.integer)
+```
+
+```{r}
+freqs_df(data_train[, c('Id', 'Regiao', 'Prima')], plot = T)
+```
+
+```{r}
+#numeric <- c("AGE", "SENIORITY")
+df_pearson<- data[, -c(1,2)]
+
+
+correl<- cor(df_pearson, method = 'pearson')
+
+testRes = corrplot::cor.mtest(df_pearson, conf.level = 0.95, method = 'pearson')
+
+corrplot::corrplot(correl, p.mat = testRes$p, addCoef.col ='black',method = 'square', order = 'FPC', type = 'lower', insig = 'blank', number.cex=0.6)
+```
+
+```{r}
+hist_resp <- ggplot(data %>% count(Resposta, Regiao) %>%    
+         mutate(pct=n/sum(n)),
+       aes(as.factor(Resposta), n)) +
+  geom_bar(stat="identity") +
+  #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
+#scale_fill_manual(guide_legend(title="Sexo"), values = c("#D95F02", "#1B9E77"),labels = c("Feminino","Masculino")) + 
+  labs(x = 'Seguro', y = 'Frequência Absoluta', title = "Distribuição de Resposta")
+
+hist_resp
+```
+
+```{r}
+
+hist_reg <- ggplot(data %>% count(Regiao, Resposta) %>%    
+         mutate(pct=n/sum(n)),
+       aes(as.factor(Regiao), n)) +
+  geom_bar(stat="identity") +
+  #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
+#scale_fill_manual(guide_legend(title="Sexo"), values = c("#D95F02", "#1B9E77"),labels = c("Feminino","Masculino")) + 
+  labs(x = 'Regiões', y = 'Frequência Absoluta', title = "Distribuição de Regiões")
+
+hist_reg
+
+
+```
+
+```{r}
+ggplot(data, aes(x=as.factor(Resposta), y=Cmaquina1)) + 
+  geom_boxplot(notch=FALSE, fill = "#1B9E77", color = 'black') +
+  #scale_x_discrete(labels = c('Sem seguro', 'Seguro Completo'))+
+  labs(title = 'Idade por Seguro',
+       x = 'Seguro',
+       y = 'Idade')
+
+
+ggplot(data, aes(x=as.factor(Resposta), y=Cmaquina2)) + 
+  geom_boxplot(notch=FALSE, fill = "#1B9E77", color = 'black') +
+  #scale_x_discrete(labels = c('Sem seguro', 'Seguro Completo'))+
+  labs(title = 'Idade por Seguro',
+       x = 'Seguro',
+       y = 'Idade')
+
+
+
+ggplot(data, aes(x=as.factor(Resposta), y=Cmaquina3)) + 
+  geom_boxplot(notch=FALSE, fill = "#1B9E77", color = 'black') +
+  #scale_x_discrete(labels = c('Sem seguro', 'Seguro Completo'))+
+  labs(title = 'Idade por Seguro',
+       x = 'Seguro',
+       y = 'Idade')
+
+
+```
