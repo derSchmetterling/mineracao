@@ -74,19 +74,13 @@ Temos um conjunto de dados referentes ao aluguel de três máquinas por agricult
 
 -   **Pmaquinabase:** variável contínua positiva representando o preço do aluguel da máquina base para dar cobertura ao assegurado
 
--   **Pmaquina1:** variável contínua positiva representando o
-    preço do aluguel da máquina 1 ofertado ao agricultor
+-   **Pmaquina1:** variável contínua positiva representando o preço do aluguel da máquina 1 ofertado ao agricultor
 
--   **Pmaquina2:** variável contínua positiva representando o
+-   **Pmaquina2:** variável contínua positiva representando o preço do aluguel da máquina 2 ofertado ao agricultor
 
-    preço do aluguel da máquina 2 ofertado ao agricultor
+-   **Pmaquina3:** variável contínua positiva representando o preço do aluguel da máquina 3 ofertado ao agricultor
 
--   **Pmaquina3:** variável contínua positiva representando o
-
-    preço do aluguel da máquina 3 ofertado ao agricultor
-
--   **Cmaquina1:** variável contínua positiva representando o
-    custo do aluguel da máquina 1 ofertado ao agricultor
+-   **Cmaquina1:** variável contínua positiva representando o custo do aluguel da máquina 1 ofertado ao agricultor
 
 -   **Cmaquina2:** variável contínua positiva representando o
 
@@ -98,21 +92,39 @@ Temos um conjunto de dados referentes ao aluguel de três máquinas por agricult
 
 -   **Resposta:** variável discreta, assume o valor de 0 quando o agricultor não aluga nenhum máquina ou o número relativa a qual máquina ele alugou (1,2, ou 3).
 
-O agricultor conhece apenas o valor de reparo das máquina (Prima) e o preço de aluguel de cada máquina (Pmaquina1,Pmaquina2,Pmaquina3).
+O agricultor conhece apenas o valor de reparo das máquina (Prima) e o preço de aluguel de cada uma (Pmaquina1,Pmaquina2,Pmaquina3), enquanto a companhia tem conhecimento de todas as variáveis. Assim, queremos construir um modelo que prediza se um determinado agricultor vai alugar alguma das máquinas oferecidas e qual máquina ele tem maior probabilidade de adquirir.
 
 ```{r}
 data_train <-  read.csv('basetreino.csv')
+data_test <-  read.csv('baseteste.csv')
 data_train <- data_train %>% 
         mutate_at(vars(CustoProduto), as.integer)
+
+head(data_train)
 ```
 
 ```{r}
 freqs_df(data_train[, c('Id', 'Regiao', 'Prima')], plot = T)
 ```
 
+Inicialmente vemos que não há valores faltantes nem no conjunte de treino nem no conjunto de teste
+
+```{r}
+library(VIM)
+aggr(data_test, col = c('green','red'), numbers = TRUE, sortVars = TRUE, 
+     labels = names(data_train), cex.axis = .5, gap = 2, 
+     ylab = c("Proportion in variable","Proportion in dataset"))
+```
+
+## Correlações
+
+Analisando a correlação linear entre as variáveis numéricas, notamos que as variáveis relativas ao custo das máquinas e o preço do aluguel estão fortemente relacionadas, como é de se esperar. Porém, é importante ressaltar como o custo de uma máquina está intimamente correlacionado com o preço de aluguel de outra ([*Pmaquina3*]{.underline} e *Cmaquina1* tem 0.82, por exemplo).
+
+As variáveis *CustoProduto* e *Prima* foram as que apresentaram menor correlação com as outras, com coeficientes de menores ou iguais a 0.6, porém todas as correlações são estatisticamente diferentes de 0 ao nível de 5% de significância.
+
 ```{r}
 #numeric <- c("AGE", "SENIORITY")
-df_pearson<- data[, -c(1,2)]
+df_pearson<- data_train[, -c(1,2,12)]
 
 
 correl<- cor(df_pearson, method = 'pearson')
@@ -122,16 +134,44 @@ testRes = corrplot::cor.mtest(df_pearson, conf.level = 0.95, method = 'pearson')
 corrplot::corrplot(correl, p.mat = testRes$p, addCoef.col ='black',method = 'square', order = 'FPC', type = 'lower', insig = 'blank', number.cex=0.6)
 ```
 
+Usando o coeficiente de Spearman e adicionando as covariáveis categóricas, nota-se como a *Regiao* tem correlação estatisticamente igual a zero com todas as outras covariáveis, à exceção de *Cmaquina3*, com quem tem um módulo baíxissimo. É interessante ver também que *CustoProduto* não apresenta correlação com a variável Resposta e, de modo, geral, todas as covariáveis tem correlação monotônica fraca com a variável dependente.
+
+```{r, warning=FALSE}
+
+correl<- cor(data_train, method = 'spearman')
+
+testRes = corrplot::cor.mtest(data_train, conf.level = 0.95, method = 'spearman')
+
+corrplot::corrplot(correl, p.mat = testRes$p, addCoef.col ='black',method = 'square', order = 'FPC', type = 'lower', insig = 'blank', number.cex=0.6)
+```
+
+## Distribuição da Variável Resposta
+
+Analisando a variável relativa ao aluguel de máquinas pelos agricultores, vemos que a grande maioria deles não alugou nenhuma.
+
 ```{r}
-hist_resp <- ggplot(data %>% count(Resposta, Regiao) %>%    
+hist_resp <- ggplot(data_train %>% count(Resposta, Regiao) %>%    
          mutate(pct=n/sum(n)),
        aes(as.factor(Resposta), n)) +
-  geom_bar(stat="identity") +
+  geom_bar(stat="identity", fill = 'purple') +
   #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
-#scale_fill_manual(guide_legend(title="Sexo"), values = c("#D95F02", "#1B9E77"),labels = c("Feminino","Masculino")) + 
   labs(x = 'Seguro', y = 'Frequência Absoluta', title = "Distribuição de Resposta")
 
 hist_resp
+```
+
+No total 144 indivíduos alugaram alguma das máquinas, sendo a máquina 2 a mais frequente.
+
+```{r}
+n_diff_zero <- nrow(filter(data_train, Resposta != 0))
+n_a1 <- nrow(filter(data_train, Resposta == 1))
+n_a2 <- nrow(filter(data_train, Resposta == 2))
+n_a3 <- nrow(filter(data_train, Resposta == 3))
+
+rent <-  data.frame(Alugadas = c(nrow(data_train)-n_diff_zero,n_a1, n_a2, n_a3, n_diff_zero),
+                    row.names = c('Não alugou', 'Alugou 1','Alugou 2', 'Alugou 3', 'Total'))
+
+rent
 ```
 
 ```{r}
