@@ -28,6 +28,8 @@ library(ggplot2)
 library(dplyr)
 library(readxl)
 library(GGally)
+library(gamlss)
+library(nnet)
 ```
 
 # Amostragem e divisão treino e teste
@@ -98,7 +100,8 @@ O agricultor conhece apenas o valor de reparo das máquina (Prima) e o preço de
 data_train <-  read.csv('basetreino.csv')
 data_test <-  read.csv('baseteste.csv')
 data_train <- data_train %>% 
-        mutate_at(vars(CustoProduto), as.integer)
+        mutate_at(vars(CustoProduto), as.integer) %>% 
+        mutate_at(vars(Resposta), as.factor)
 
 head(data_train)
 ```
@@ -150,12 +153,12 @@ corrplot::corrplot(correl, p.mat = testRes$p, addCoef.col ='black',method = 'squ
 Analisando a variável relativa ao aluguel de máquinas pelos agricultores, vemos que a grande maioria deles não alugou nenhuma.
 
 ```{r}
-hist_resp <- ggplot(data_train %>% count(Resposta, Regiao) %>%    
+hist_resp <- ggplot(data_train %>% count(Resposta) %>%    
          mutate(pct=n/sum(n)),
        aes(as.factor(Resposta), n)) +
   geom_bar(stat="identity", fill = 'purple') +
   #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
-  labs(x = 'Seguro', y = 'Frequência Absoluta', title = "Distribuição de Resposta")
+  labs(x = 'Aluguel de Máquinas', y = 'Frequência Absoluta', title = "Distribuição de Resposta")
 
 hist_resp
 ```
@@ -168,51 +171,90 @@ n_a1 <- nrow(filter(data_train, Resposta == 1))
 n_a2 <- nrow(filter(data_train, Resposta == 2))
 n_a3 <- nrow(filter(data_train, Resposta == 3))
 
+
+train <- c(nrow(data_train)-n_diff_zero,n_a1, n_a2, n_a3, n_diff_zero)
+
+
+
 rent <-  data.frame(Alugadas = c(nrow(data_train)-n_diff_zero,n_a1, n_a2, n_a3, n_diff_zero),
-                    row.names = c('Não alugou', 'Alugou 1','Alugou 2', 'Alugou 3', 'Total'))
+                    row.names = c('Não alugou', 'Alugou 1','Alugou 2', 'Alugou 3', 'Total Alugadas'))
 
 rent
 ```
 
+### Resposta vs Custo
+
 ```{r}
 
-hist_reg <- ggplot(data %>% count(Regiao, Resposta) %>%    
-         mutate(pct=n/sum(n)),
-       aes(as.factor(Regiao), n)) +
-  geom_bar(stat="identity") +
+hist_resp <- ggplot(data_train,
+       aes(as.factor(Prima), Pmaquina1, colour = as.factor(Resposta) )) +
+  geom_point(stat="identity") +
   #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
-#scale_fill_manual(guide_legend(title="Sexo"), values = c("#D95F02", "#1B9E77"),labels = c("Feminino","Masculino")) + 
-  labs(x = 'Regiões', y = 'Frequência Absoluta', title = "Distribuição de Regiões")
+  scale_fill_manual(guide_legend(title="Aluguel de Máquinas"), values = c("#D95F02", "#1B9E77", "red", "blue")) + 
+  labs(x = 'Aluguel de Máquinas', y = 'Frequência Absoluta', title = "Distribuição de Resposta")
 
-hist_reg
+hist_resp
+
+
+```
+
+## Redução de Dimensionalidade
+
+```{r}
+library("FactoMineR")
+library("factoextra")
+library(ggcorrplot)
+```
+
+```{r}
+
+dropped_df <- data_train %>% 
+  dplyr::select(-one_of(c('Regiao', 'Id', 'Resposta')))
+
+data_normalized <- scale(dropped_df)
+corr_matrix <- cor(data_normalized)
+
+data.pca <- PCA(corr_matrix, scale = F, graph = F)
+
+
+eigenvalues <- data.pca$eig
+head(eigenvalues[, 1:2])
+
+explained_var <- sum(eigenvalues[1:3, 2])
+print(paste('Porcentagem da variância explicada por PCA 1,2 e 3: ', explained_var))
+
 
 
 ```
 
 ```{r}
-ggplot(data, aes(x=as.factor(Resposta), y=Cmaquina1)) + 
-  geom_boxplot(notch=FALSE, fill = "#1B9E77", color = 'black') +
-  #scale_x_discrete(labels = c('Sem seguro', 'Seguro Completo'))+
-  labs(title = 'Idade por Seguro',
-       x = 'Seguro',
-       y = 'Idade')
-
-
-ggplot(data, aes(x=as.factor(Resposta), y=Cmaquina2)) + 
-  geom_boxplot(notch=FALSE, fill = "#1B9E77", color = 'black') +
-  #scale_x_discrete(labels = c('Sem seguro', 'Seguro Completo'))+
-  labs(title = 'Idade por Seguro',
-       x = 'Seguro',
-       y = 'Idade')
+sort(abs(data.pca$var$contrib[,1]), decreasing = TRUE)[1:5]
+sort(abs(data.pca$var$contrib[,2]), decreasing = TRUE)[1:5]
+sort(abs(data.pca$var$contrib[,3]), decreasing = TRUE)[1:5]
 
 
 
-ggplot(data, aes(x=as.factor(Resposta), y=Cmaquina3)) + 
-  geom_boxplot(notch=FALSE, fill = "#1B9E77", color = 'black') +
-  #scale_x_discrete(labels = c('Sem seguro', 'Seguro Completo'))+
-  labs(title = 'Idade por Seguro',
-       x = 'Seguro',
-       y = 'Idade')
+```
+
+## Ajuste de Modelos
+
+Usando as variáveis usadas para a construção das três componentes principais e excluindo aqueles com alta correlação linear entre si, terminamos com CustoProduto e Prima para predizer o tipo de máquina alugada.
+
+```{r}
+reduced_data1 <- data_train %>% 
+  dplyr::select(one_of('CustoProduto', 'Resposta', 'Prima'))
+```
+
+```{r}
+
+reduced_data1$Resposta2 <- relevel(reduced_data1$Resposta, ref = "0")
+
+
+m1 <- multinom(Resposta2 ~ CustoProduto + Prima, data = reduced_data1)
+
+summary(m1)
+
+unique(predict(m1, newdata = reduced_data1, type = 'class'))
 
 
 ```
