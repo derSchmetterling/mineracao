@@ -35,8 +35,8 @@ library(nnet)
 # Amostragem e divisão treino e teste
 
 ```{r}
-data <-  read_excel('ChoiceBehaviour.xlsx')
-summary(data)
+# data <-  read_excel('ChoiceBehaviour.xlsx')
+# summary(data)
 ```
 
 ```{r}
@@ -94,7 +94,7 @@ Temos um conjunto de dados referentes ao aluguel de três máquinas por agricult
 
 -   **Resposta:** variável discreta, assume o valor de 0 quando o agricultor não aluga nenhum máquina ou o número relativa a qual máquina ele alugou (1,2, ou 3).
 
-O agricultor conhece apenas o valor de reparo das máquina (Prima) e o preço de aluguel de cada uma (Pmaquina1,Pmaquina2,Pmaquina3), enquanto a companhia tem conhecimento de todas as variáveis. Assim, queremos construir um modelo que prediza se um determinado agricultor vai alugar alguma das máquinas oferecidas e qual máquina ele tem maior probabilidade de adquirir.
+O agricultor conhece apenas o valor de reparo das máquina (Prima) e o preço de aluguel de cada uma (Pmaquina1,Pmaquina2,Pmaquina3), enquanto a companhia tem conhecimento de todas as variáveis. **Assim, queremos construir um modelo que prediza qual máquina determinado agricultor vai alugar, desconsiderando aqueles clientes que não alugaram nenhuma.**
 
 ```{r}
 data_train <-  read.csv('basetreino.csv')
@@ -103,6 +103,13 @@ data_train <- data_train %>%
         mutate_at(vars(CustoProduto), as.integer) %>% 
         mutate_at(vars(Resposta), as.factor) %>% 
         filter(Resposta != '0')
+
+
+data_test <- data_test %>% 
+        mutate_at(vars(CustoProduto), as.integer) %>% 
+        mutate_at(vars(Resposta), as.factor) %>% 
+        filter(Resposta != '0')
+
 
 head(data_train)
 data_train
@@ -121,7 +128,9 @@ aggr(data_test, col = c('green','red'), numbers = TRUE, sortVars = TRUE,
      ylab = c("Proportion in variable","Proportion in dataset"))
 ```
 
-## Correlações
+## Seleção de Features
+
+### Correlações
 
 Analisando a correlação linear entre as variáveis numéricas, notamos que as variáveis relativas ao custo das máquinas e o preço do aluguel estão fortemente relacionadas, como é de se esperar. Porém, é importante ressaltar como o custo de uma máquina está intimamente correlacionado com o preço de aluguel de outra ([*Pmaquina3*]{.underline} e *Cmaquina1* tem 0.82, por exemplo).
 
@@ -139,19 +148,23 @@ testRes = corrplot::cor.mtest(df_pearson, conf.level = 0.95, method = 'pearson')
 corrplot::corrplot(correl, p.mat = testRes$p, addCoef.col ='black',method = 'square', order = 'FPC', type = 'lower', insig = 'blank', number.cex=0.6)
 ```
 
-Usando o coeficiente de Spearman e adicionando as covariáveis categóricas, nota-se como a *Regiao* tem correlação estatisticamente igual a zero com todas as outras covariáveis, à exceção de *Cmaquina3*, com quem tem um módulo baíxissimo. É interessante ver também que *CustoProduto* não apresenta correlação com a variável Resposta e, de modo, geral, todas as covariáveis tem correlação monotônica fraca com a variável dependente.
+Usando o coeficiente de Kendall e adicionando as covariáveis categóricas, nota-se como a *Regiao* tem correlação estatisticamente igual a zero com todas as outras covariáveis. É interessante ver também que *Cmaquina3 e Pmaquina1* não apresentam correlação com a variável Resposta e, de modo, geral, todas as covariáveis tem correlação monotônica fraca com a variável dependente.
 
 ```{r, warning=FALSE}
 
 df_spearman <- data_train %>% 
   mutate_at(vars(Resposta), as.integer)
 
-correl<- cor(df_spearman, method = 'spearman')
+correl<- cor(df_spearman, method = 'kendall')
 
 testRes = corrplot::cor.mtest(df_spearman, conf.level = 0.95, method = 'spearman')
 
 corrplot::corrplot(correl, p.mat = testRes$p, addCoef.col ='black',method = 'square', order = 'FPC', type = 'lower', insig = 'blank', number.cex=0.6)
 ```
+
+### ANOVA F-Score
+
+Em seguida, utilizamos F-Score para escolher um conjunto de três variáveis para representar o conjunto de dados completo.
 
 ```{python}
 import pandas as pd
@@ -159,18 +172,40 @@ from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import f_classif
 
 
-df = pd.read_excel('ChoiceBehaviour.xlsx')
+df = pd.read_csv('basetreino.csv')
 df = df[df['Resposta'] != 0]
+df['CustoProduto'] = df['CustoProduto'].astype(str).apply(lambda x: x[:-2])
+
+
 ```
 
 ```{python}
 
-x = df[1:9]
-y = df[10]
+x = df.iloc[:,1:10]
+y = df.iloc[:,11]
 
-fs = SelectKBest(score_func=f_classif, k=2)
+
+fs = SelectKBest(score_func=f_classif, k=3)
 # aplica o método
 X_selected = fs.fit_transform(x, y)
+```
+
+```{python}
+col_names = ['Prima', 'Pmaquina2', 'Pmaquina3']
+df_reduced = pd.DataFrame(X_selected, columns = col_names )
+```
+
+Vimos anteriormente também que *Pmaquina2* e *Pmaquina3* tem um correlação linear alta de 0.94, então usaremos arbitrariamente apenas Pmaquina3, terminando com o seguinte conjunto de dados:
+
+```{r}
+df_reg <- data_train %>% 
+  dplyr::select(c('Resposta', 'Pmaquina3', 'Prima'))
+
+df_test <- data_test %>% 
+  dplyr::select(c('Resposta', 'Pmaquina3', 'Prima'))
+
+
+head(df_reg)
 
 ```
 
@@ -213,10 +248,11 @@ rent
 ```{r}
 
 hist_resp <- ggplot(data_train,
-       aes(as.factor(Prima), Pmaquina1, colour = as.factor(Resposta) )) +
+       aes(Prima, Pmaquina3, colour = as.factor(Resposta) )) +
   geom_point(stat="identity") +
   #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
-  scale_fill_manual(guide_legend(title="Aluguel de Máquinas"), values = c("#D95F02", "#1B9E77", "red", "blue")) + 
+  scale_fill_manual(guide_legend(title="Aluguel de Máquinas"), values = c("#D95F02", "#1B9E77", "blue")) + 
+  #scale_x_discrete(guide = guide_axis(n.dodge=3))+
   labs(x = 'Aluguel de Máquinas', y = 'Frequência Absoluta', title = "Distribuição de Resposta")
 
 hist_resp
@@ -264,23 +300,41 @@ sort(abs(data.pca$var$contrib[,3]), decreasing = TRUE)[1:5]
 
 ## Ajuste de Modelos
 
-Usando as variáveis usadas para a construção das três componentes principais e excluindo aqueles com alta correlação linear entre si, terminamos com CustoProduto e Prima para predizer o tipo de máquina alugada.
+### Modelo Multinomial
 
-```{r}
-reduced_data1 <- data_train %>% 
-  dplyr::select(one_of('CustoProduto', 'Resposta', 'Prima'))
-```
+Usando as variáveis usadas para a construção das três componentes principais e excluindo aqueles com alta correlação linear entre si, terminamos com *Prima* e *Pmaquina3*
 
 ```{r}
 
-reduced_data1$Resposta2 <- relevel(reduced_data1$Resposta, ref = "0")
+df_reg$Resposta2 <- relevel(df_reg$Resposta, ref = "1")
 
 
-m1 <- multinom(Resposta2 ~ CustoProduto + Prima, data = reduced_data1)
+m1 <- multinom(Resposta2 ~ Pmaquina3 + Prima, data = df_reg)
 
 summary(m1)
 
 unique(predict(m1, newdata = reduced_data1, type = 'class'))
 
 
+```
+
+### Random Forest
+
+```{r}
+library(randomForest)
+
+df_reg[,1] <- droplevels(df_reg[,1])
+
+t <- tuneRF(df_reg[,-c(1,4)], df_reg[,1],
+       stepFactor = 0.5,
+       plot = TRUE,
+       ntreeTry = 150,
+       trace = TRUE,
+       improve = 0.05)
+
+```
+
+```{r}
+rf <- randomForest(Resposta~ Prima + Pmaquina3, data=df_reg, proximity=TRUE, mtry = 2) 
+print(rf)
 ```
