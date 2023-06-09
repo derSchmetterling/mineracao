@@ -41,25 +41,25 @@ summary(data)
 
 ```{r}
 #| echo: false
-set.seed(10727865)
-sampled_df <- sample_n(data, 2000)
-write.csv(sampled_df,'baseprincipal.csv', sep = '/t', row.names = F)
-
-sampled_df <- data.frame(sampled_df)
-
-sampled_df[c(1,2),]
+# set.seed(10727865)
+# sampled_df <- sample_n(data, 2000)
+# write.csv(sampled_df,'baseprincipal.csv', sep = '/t', row.names = F)
+# 
+# sampled_df <- data.frame(sampled_df)
+# 
+# sampled_df[c(1,2),]
 ```
 
 ```{r}
 #| echo: false
-train_idx <- caret::createDataPartition(sampled_df$Resposta, p =0.7, list = FALSE)
-
-train_df <- sampled_df[train_idx,]
-test_df <- sampled_df[-train_idx,]
-
-write.csv(train_df,'basetreino.csv', sep = '/t', row.names = F)
-
-write.csv(test_df,'baseteste.csv', sep = '/t', row.names = F)
+# train_idx <- caret::createDataPartition(sampled_df$Resposta, p =0.7, list = FALSE)
+# 
+# train_df <- sampled_df[train_idx,]
+# test_df <- sampled_df[-train_idx,]
+# 
+# write.csv(train_df,'basetreino.csv', sep = '/t', row.names = F)
+# 
+# write.csv(test_df,'baseteste.csv', sep = '/t', row.names = F)
 ```
 
 # Análise Exploratória
@@ -101,9 +101,11 @@ data_train <-  read.csv('basetreino.csv')
 data_test <-  read.csv('baseteste.csv')
 data_train <- data_train %>% 
         mutate_at(vars(CustoProduto), as.integer) %>% 
-        mutate_at(vars(Resposta), as.factor)
+        mutate_at(vars(Resposta), as.factor) %>% 
+        filter(Resposta != '0')
 
 head(data_train)
+data_train
 ```
 
 ```{r}
@@ -141,11 +143,35 @@ Usando o coeficiente de Spearman e adicionando as covariáveis categóricas, not
 
 ```{r, warning=FALSE}
 
-correl<- cor(data_train, method = 'spearman')
+df_spearman <- data_train %>% 
+  mutate_at(vars(Resposta), as.integer)
 
-testRes = corrplot::cor.mtest(data_train, conf.level = 0.95, method = 'spearman')
+correl<- cor(df_spearman, method = 'spearman')
+
+testRes = corrplot::cor.mtest(df_spearman, conf.level = 0.95, method = 'spearman')
 
 corrplot::corrplot(correl, p.mat = testRes$p, addCoef.col ='black',method = 'square', order = 'FPC', type = 'lower', insig = 'blank', number.cex=0.6)
+```
+
+```{python}
+import pandas as pd
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import f_classif
+
+
+df = pd.read_excel('ChoiceBehaviour.xlsx')
+df = df[df['Resposta'] != 0]
+```
+
+```{python}
+
+x = df[1:9]
+y = df[10]
+
+fs = SelectKBest(score_func=f_classif, k=2)
+# aplica o método
+X_selected = fs.fit_transform(x, y)
+
 ```
 
 ## Distribuição da Variável Resposta
