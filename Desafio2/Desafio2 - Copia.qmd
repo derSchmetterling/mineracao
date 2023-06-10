@@ -34,6 +34,8 @@ library(nnet)
 
 # Amostragem e divisão treino e teste
 
+Procedimentos de amostragem e divisão de treino e teste estão disponível no arquivo .qmd.
+
 ```{r}
 # data <-  read_excel('ChoiceBehaviour.xlsx')
 # summary(data)
@@ -115,10 +117,6 @@ head(data_train)
 data_train
 ```
 
-```{r}
-freqs_df(data_train[, c('Id', 'Regiao', 'Prima')], plot = T)
-```
-
 Inicialmente vemos que não há valores faltantes nem no conjunte de treino nem no conjunto de teste
 
 ```{r}
@@ -174,6 +172,7 @@ from sklearn.feature_selection import f_classif
 
 df = pd.read_csv('basetreino.csv')
 df = df[df['Resposta'] != 0]
+df = df.drop('Id', axis = 1)
 df['CustoProduto'] = df['CustoProduto'].astype(str).apply(lambda x: x[:-2])
 
 
@@ -209,6 +208,135 @@ head(df_reg)
 
 ```
 
+### Clusterização
+
+Inicialmente, escalamos os dados númericos para que diferentes dimensões não afetem a análise de agrupamento.
+
+```{python}
+#| warning: false
+
+import pandas as pd
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import f_classif
+from sklearn.preprocessing import StandardScaler
+
+df_scaled = df.copy()
+df_scaled.iloc[:,0:10] = StandardScaler().fit_transform(df_scaled.iloc[:,0:10])
+df_scaled.head()
+```
+
+Inicialmente aplicamos o agrupamento hierárquico usando o método 'ward'.
+
+```{python}
+from sklearn.cluster import AgglomerativeClustering
+
+
+cluster = AgglomerativeClustering(n_clusters = 3,
+distance_threshold=None,
+compute_distances = True,
+linkage='ward')
+model = cluster.fit(df_scaled)
+
+```
+
+```{python}
+
+df_cluster = df.copy()
+df_cluster['HCluster'] = model.labels_.astype(str)
+```
+
+```{python}
+import seaborn as sns
+import matplotlib.pyplot as plt
+sns.set_palette(sns.color_palette("tab10",4))
+fig, ax = plt.subplots(1,2, figsize=(12,9))
+fig.tight_layout(pad=6.0)
+
+p1 = sns.scatterplot(data = df_cluster,x = 'Prima', y = 'Pmaquina2',
+hue = 'HCluster',
+ax = ax[0])
+p1.set(title = 'Prima por Pmaquina3',xlabel = 'Custo de Matéria Prima',ylabel = 'Preço da Máquina 3')
+
+# p2 = sns.scatterplot(data = df_cluster,x = 'Prima', y = 'Pmaquina2',
+# hue = 'HCluster',
+# ax = ax[1])
+# p2.set(title = 'Prima por Pmaquina3',xlabel = 'Custo de Matéria Prima',ylabel = 'Preço da Máquina 3')
+
+
+
+p2 = sns.histplot(data = df_cluster,
+x = 'Resposta',
+hue = 'HCluster',
+discrete = True,
+multiple = 'stack',
+ax = ax[1])
+p2.set(title = 'Clusterização Hierárquica',
+xlabel = 'Máquina Alugada',
+ylabel = 'Frequência')
+
+plt.show()
+```
+
+```{python}
+
+from sklearn.cluster import KMeans
+cluster = KMeans(random_state = 10727865, n_init= 10, n_clusters = 3)
+model_k = cluster.fit(df_scaled)
+
+
+df_cluster['KMeans'] = model_k.labels_.astype(str)
+df_cluster.sort_values(by = 'KMeans', inplace=True)
+
+```
+
+```{python}
+sns.set_palette(sns.color_palette("tab10",4))
+fig, ax = plt.subplots(1,2, figsize=(12,9))
+fig.tight_layout(pad=6.0)
+
+#df_cluster['CustoProduto'] = df_cluster['CustoProduto'].astype(int)
+
+p1 = sns.scatterplot(data = df_cluster,x = 'Cmaquina3', y = 'Pmaquina3',
+hue = 'Resposta', ax = ax[0])
+p1.set(title = 'Prima por Pmaquina3',xlabel = 'Custo de Matéria Prima',ylabel = 'Preço da Máquina 3')
+plt.show()
+
+df_cluster
+```
+
+```{python}
+sns.set_palette(sns.color_palette("tab10",4))
+fig, ax = plt.subplots(1,2, figsize=(12,9))
+fig.tight_layout(pad=6.0)
+
+p1 = sns.scatterplot(data = df_cluster,x = 'Prima', y = 'Pmaquina3',
+hue = 'KMeans',
+ax = ax[0])
+p1.set(title = 'Prima por Pmaquina3',xlabel = 'Custo de Matéria Prima',ylabel = 'Preço da Máquina 3')
+
+# p2 = sns.scatterplot(data = df_cluster,x = 'Prima', y = 'Pmaquina3',
+# hue = 'Resposta',
+# ax = ax[1])
+# p1.set(title = 'Prima por Pmaquina3',xlabel = 'Custo de Matéria Prima',ylabel = 'Preço da Máquina 3')
+
+
+
+p2 = sns.histplot(data = df_cluster,
+x = 'Resposta',
+hue = 'KMeans',
+discrete = True,
+multiple = 'stack',
+ax = ax[1])
+p2.set(title = 'Clusterização Hierárquica',
+xlabel = 'Máquina Alugada',
+ylabel = 'Frequência')
+
+
+
+
+plt.show()
+```
+
 ## Distribuição da Variável Resposta
 
 Analisando a variável relativa ao aluguel de máquinas pelos agricultores, vemos que a grande maioria deles não alugou nenhuma.
@@ -227,18 +355,18 @@ hist_resp
 No total 144 indivíduos alugaram alguma das máquinas, sendo a máquina 2 a mais frequente.
 
 ```{r}
-n_diff_zero <- nrow(filter(data_train, Resposta != 0))
+#n_diff_zero <- nrow(filter(data_train, Resposta != 0))
 n_a1 <- nrow(filter(data_train, Resposta == 1))
 n_a2 <- nrow(filter(data_train, Resposta == 2))
 n_a3 <- nrow(filter(data_train, Resposta == 3))
 
 
-train <- c(nrow(data_train)-n_diff_zero,n_a1, n_a2, n_a3, n_diff_zero)
+train <- c(nrow(data_train),n_a1, n_a2, n_a3)
 
 
 
-rent <-  data.frame(Alugadas = c(nrow(data_train)-n_diff_zero,n_a1, n_a2, n_a3, n_diff_zero),
-                    row.names = c('Não alugou', 'Alugou 1','Alugou 2', 'Alugou 3', 'Total Alugadas'))
+rent <-  data.frame(Alugadas = c(nrow(data_train),n_a1, n_a2, n_a3),
+                    row.names = c('Total Alugadas','Alugou 1','Alugou 2', 'Alugou 3' ))
 
 rent
 ```
@@ -254,6 +382,16 @@ hist_resp <- ggplot(data_train,
   scale_fill_manual(guide_legend(title="Aluguel de Máquinas"), values = c("#D95F02", "#1B9E77", "blue")) + 
   #scale_x_discrete(guide = guide_axis(n.dodge=3))+
   labs(x = 'Aluguel de Máquinas', y = 'Frequência Absoluta', title = "Distribuição de Resposta")
+
+
+hist_resp <- ggplot(data_train,
+       aes(Prima, Pmaquina3, colour = as.factor(Resposta) )) +
+  geom_point(stat="identity") +
+  #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
+  scale_fill_manual(guide_legend(title="Aluguel de Máquinas"), values = c("#D95F02", "#1B9E77", "blue")) + 
+  #scale_x_discrete(guide = guide_axis(n.dodge=3))+
+  labs(x = 'Aluguel de Máquinas', y = 'Frequência Absoluta', title = "Distribuição de Resposta")
+
 
 hist_resp
 
