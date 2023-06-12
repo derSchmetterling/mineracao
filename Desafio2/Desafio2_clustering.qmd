@@ -1,14 +1,13 @@
 ---
-title: "Desafio 2"
-subtitle: "Predizendo probabilidade de adquirir aluguel para máquinas"
-author: Pedro Vinícius Alves Silva - 10727865
+title: "Análise Dados Retrospectivos"
+subtitle: "Data: 16/05/2023"
 format:
-  pdf:
+  html:
     embed-resources: true
     fontsize: 15pt
     theme: sandstone
-    code-fold: true
-    echo: true
+    #code-fold: true
+    echo: false
     number-sections: false
     code-tools: true
     toc: true
@@ -252,7 +251,7 @@ from sklearn.cluster import AgglomerativeClustering
 cluster = AgglomerativeClustering(n_clusters = 3,
 distance_threshold=None,
 compute_distances = True,
-linkage='ward')
+linkage='complete')
 model = cluster.fit(df_scaled)
 
 ```
@@ -281,7 +280,7 @@ fig.tight_layout(pad=6.0)
 p1 = sns.scatterplot(data = df_cluster,y = 'Prima', x = 'Pmaquina3',
 hue = 'HCluster',
 ax = ax[0])
-p1.set(title = 'Prima vs Pmaquina3',ylabel = 'Custo de Matéria Prima',xlabel = 'Preço da Máquina 3')
+p1.set(title = 'CustoProduto por Pmaquina3',ylabel = 'Custo de Matéria Prima',xlabel = 'Preço da Máquina 3')
 
 # p2 = sns.scatterplot(data = df_cluster,x = 'Prima', y = 'Pmaquina2',
 # hue = 'HCluster',
@@ -316,6 +315,54 @@ model_k = cluster.fit(df_scaled)
 
 df_cluster['KMeans'] = model_k.labels_.astype(str)
 df_cluster.sort_values(by = 'KMeans', inplace=True)
+```
+
+```{python}
+sns.set_palette(sns.color_palette("tab10",4))
+fig, ax = plt.subplots(1,2, figsize=(12,9))
+fig.tight_layout(pad=6.0)
+
+#df_cluster['CustoProduto'] = df_cluster['CustoProduto'].astype(int)
+
+p1 = sns.scatterplot(data = df_cluster,x = 'Cmaquina3', y = 'Pmaquina3',
+hue = 'Resposta', ax = ax[0])
+p1.set(title = 'Prima por Pmaquina3',xlabel = 'Custo de Matéria Prima',ylabel = 'Preço da Máquina 3')
+plt.show()
+
+df_cluster
+```
+
+```{python}
+sns.set_palette(sns.color_palette("tab10",4))
+fig, ax = plt.subplots(1,2, figsize=(12,9))
+fig.tight_layout(pad=6.0)
+
+p1 = sns.scatterplot(data = df_cluster,x = 'Prima', y = 'Pmaquina3',
+hue = 'KMeans',
+ax = ax[0])
+p1.set(title = 'Prima por Pmaquina3',xlabel = 'Custo de Matéria Prima',ylabel = 'Preço da Máquina 3')
+
+# p2 = sns.scatterplot(data = df_cluster,x = 'Prima', y = 'Pmaquina3',
+# hue = 'Resposta',
+# ax = ax[1])
+# p1.set(title = 'Prima por Pmaquina3',xlabel = 'Custo de Matéria Prima',ylabel = 'Preço da Máquina 3')
+
+
+
+p2 = sns.histplot(data = df_cluster,
+x = 'Resposta',
+hue = 'KMeans',
+discrete = True,
+multiple = 'stack',
+ax = ax[1])
+p2.set(title = 'Clusterização Hierárquica',
+xlabel = 'Máquina Alugada',
+ylabel = 'Frequência')
+
+
+
+
+plt.show()
 ```
 
 ## Distribuição da Variável Resposta
