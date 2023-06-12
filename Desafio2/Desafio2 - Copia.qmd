@@ -172,6 +172,8 @@ from sklearn.feature_selection import f_classif
 
 df = pd.read_csv('basetreino.csv')
 df = df[df['Resposta'] != 0]
+
+df['CustoProduto'] = df['CustoProduto'].astype(int)
 df = df.drop('Id', axis = 1)
 df['CustoProduto'] = df['CustoProduto'].astype(str).apply(lambda x: x[:-2])
 
@@ -181,7 +183,7 @@ df['CustoProduto'] = df['CustoProduto'].astype(str).apply(lambda x: x[:-2])
 ```{python}
 
 x = df.iloc[:,1:10]
-y = df.iloc[:,11]
+y = df.iloc[:,10]
 
 
 fs = SelectKBest(score_func=f_classif, k=3)
@@ -225,7 +227,7 @@ df_scaled.iloc[:,0:10] = StandardScaler().fit_transform(df_scaled.iloc[:,0:10])
 df_scaled.head()
 ```
 
-Inicialmente aplicamos o agrupamento hierárquico usando o método 'ward'.
+Aplicamos o agrupamento hierárquico usando o método 'ward'.
 
 ```{python}
 from sklearn.cluster import AgglomerativeClustering
@@ -243,6 +245,10 @@ model = cluster.fit(df_scaled)
 
 df_cluster = df.copy()
 df_cluster['HCluster'] = model.labels_.astype(str)
+df_cluster.sort_values(by = 'HCluster', inplace=True)
+
+
+
 ```
 
 ```{python}
@@ -252,10 +258,10 @@ sns.set_palette(sns.color_palette("tab10",4))
 fig, ax = plt.subplots(1,2, figsize=(12,9))
 fig.tight_layout(pad=6.0)
 
-p1 = sns.scatterplot(data = df_cluster,x = 'Prima', y = 'Pmaquina2',
+p1 = sns.scatterplot(data = df_cluster,y = 'CustoProduto', x = 'Pmaquina2',
 hue = 'HCluster',
 ax = ax[0])
-p1.set(title = 'Prima por Pmaquina3',xlabel = 'Custo de Matéria Prima',ylabel = 'Preço da Máquina 3')
+p1.set(title = 'Prima por Pmaquina3',ylabel = 'Custo de Matéria Prima',xlabel = 'Preço da Máquina 3')
 
 # p2 = sns.scatterplot(data = df_cluster,x = 'Prima', y = 'Pmaquina2',
 # hue = 'HCluster',
@@ -274,6 +280,8 @@ p2.set(title = 'Clusterização Hierárquica',
 xlabel = 'Máquina Alugada',
 ylabel = 'Frequência')
 
+
+
 plt.show()
 ```
 
@@ -286,7 +294,7 @@ model_k = cluster.fit(df_scaled)
 
 df_cluster['KMeans'] = model_k.labels_.astype(str)
 df_cluster.sort_values(by = 'KMeans', inplace=True)
-
+df_cluster.sort_values(by = 'KMeans', inplace=True)
 ```
 
 ```{python}
@@ -309,7 +317,7 @@ sns.set_palette(sns.color_palette("tab10",4))
 fig, ax = plt.subplots(1,2, figsize=(12,9))
 fig.tight_layout(pad=6.0)
 
-p1 = sns.scatterplot(data = df_cluster,x = 'Prima', y = 'Pmaquina3',
+p1 = sns.scatterplot(data = df_cluster,x = 'CustoProduto', y = 'Pmaquina3',
 hue = 'KMeans',
 ax = ax[0])
 p1.set(title = 'Prima por Pmaquina3',xlabel = 'Custo de Matéria Prima',ylabel = 'Preço da Máquina 3')
