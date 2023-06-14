@@ -3,7 +3,7 @@ title: "Desafio 2"
 subtitle: "Predizendo probabilidade de adquirir aluguel para máquinas"
 author: Pedro Vinícius Alves Silva - 10727865
 format:
-  pdf:
+  html:
     embed-resources: true
     fontsize: 15pt
     theme: sandstone
@@ -35,7 +35,7 @@ library(nnet)
 
 # Amostragem e divisão treino e teste
 
-Procedimentos de amostragem e divisão de treino e teste estão disponível no arquivo .qmd.
+Procedimentos de amostragem e divisão de treino e teste estão disponíveis no arquivo .qmd.
 
 ```{r}
 # data <-  read_excel('ChoiceBehaviour.xlsx')
@@ -87,13 +87,9 @@ Temos um conjunto de dados referentes ao aluguel de três máquinas por agricult
 
 -   **Cmaquina1:** variável contínua positiva representando o custo do aluguel da máquina 1 ofertado ao agricultor
 
--   **Cmaquina2:** variável contínua positiva representando o
+-   **Cmaquina2:** variável contínua positiva representando o custo do aluguel da máquina 2 ofertado ao agricultor
 
-    custo do aluguel da máquina 2 ofertado ao agricultor
-
--   **Cmaquina3:** variável contínua positiva representando o
-
-    custo do aluguel da máquina 3 ofertado ao agricultor
+-   **Cmaquina3:** variável contínua positiva representando o custo do aluguel da máquina 3 ofertado ao agricultor
 
 -   **Resposta:** variável discreta, assume o valor de 0 quando o agricultor não aluga nenhum máquina ou o número relativa a qual máquina ele alugou (1,2, ou 3).
 
@@ -118,9 +114,9 @@ head(data_train)
 data_train
 ```
 
-Inicialmente vemos que não há valores faltantes nem no conjunte de treino nem no conjunto de teste
+Inicialmente vemos que não há valores faltantes nem no conjunto de treino nem no conjunto de teste
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(VIM)
 aggr(data_test, col = c('green','red'), numbers = TRUE, sortVars = TRUE, 
      labels = names(data_train), cex.axis = .5, gap = 2, 
@@ -210,14 +206,14 @@ col_names = ['Prima', 'Pmaquina2', 'Pmaquina3']
 df_reduced = pd.DataFrame(X_selected, columns = col_names )
 ```
 
-Vimos anteriormente também que *Pmaquina2* e *Pmaquina3* tem um correlação linear alta de 0.94, então usaremos arbitrariamente apenas Pmaquina3, terminando com o seguinte conjunto de dados:
+Vimos anteriormente também que *Pmaquina1,* Pmaquina*2*, *Pmaquina3* tem um correlação linear alta de acima de 0.9, então usaremos arbitrariamente apenas *Pmaquina1*, terminando com o seguinte conjunto de dados:
 
 ```{r}
 df_reg <- data_train %>% 
-  dplyr::select(c('Resposta', 'Pmaquina3', 'Prima'))
+  dplyr::select(c('Resposta', 'Pmaquina1', 'Prima'))
 
 df_test <- data_test %>% 
-  dplyr::select(c('Resposta', 'Pmaquina3', 'Prima'))
+  dplyr::select(c('Resposta', 'Pmaquina1', 'Prima'))
 
 
 head(df_reg)
@@ -226,7 +222,7 @@ head(df_reg)
 
 ### Clusterização
 
-Inicialmente, escalamos os dados númericos para que diferentes dimensões não afetem a análise de agrupamento.
+Para termos uma ideia do perfil dos clientes, vamos aplicar um procedimento de agrupamento. Para isso, escalamos os dados númericos para que diferentes dimensões não afetem a análise de processo.
 
 ```{python}
 #| warning: false
@@ -268,20 +264,16 @@ df_cluster['CustoProduto'] = df_cluster['CustoProduto'].astype(int)
 ```
 
 ```{python}
-df_cluster['CustoProduto']
-```
-
-```{python}
 import seaborn as sns
 import matplotlib.pyplot as plt
 sns.set_palette(sns.color_palette("tab10",4))
 fig, ax = plt.subplots(1,2, figsize=(12,9))
 fig.tight_layout(pad=6.0)
 
-p1 = sns.scatterplot(data = df_cluster,y = 'Prima', x = 'Pmaquina3',
+p1 = sns.scatterplot(data = df_cluster,y = 'Prima', x = 'Pmaquina1',
 hue = 'HCluster',
 ax = ax[0])
-p1.set(title = 'Prima vs Pmaquina3',ylabel = 'Custo de Matéria Prima',xlabel = 'Preço da Máquina 3')
+p1.set(title = 'Prima vs Pmaquina3',ylabel = 'Custo de Matéria Prima',xlabel = 'Preço da Máquina 1')
 
 # p2 = sns.scatterplot(data = df_cluster,x = 'Prima', y = 'Pmaquina2',
 # hue = 'HCluster',
@@ -318,6 +310,8 @@ df_cluster['KMeans'] = model_k.labels_.astype(str)
 df_cluster.sort_values(by = 'KMeans', inplace=True)
 ```
 
+Ao plotar o custo de matéria prima e o preço da máquina 3 e analisando os agrupamentos gerados, conseguimos encontrar 3 grupos de clientes. Quando o preço da máquina 3 é alto, os clientes do grupo 1 parecem ter uma tendência maior a alugar a máquina 1. Analogamente, clientes do grupo 0, ao serem apresentados a um preço baixo da máquina 3, preferem alugar a máquina 2. Já os indivíduos do grupo 2, parecem ter uma preferência pelas máquinas 1 e 2, em detrimento da 3.
+
 ## Distribuição da Variável Resposta
 
 Analisando a variável relativa ao aluguel de máquinas pelos agricultores, vemos que a grande maioria deles não alugou nenhuma.
@@ -325,8 +319,9 @@ Analisando a variável relativa ao aluguel de máquinas pelos agricultores, vemo
 ```{r}
 hist_resp <- ggplot(data_train %>% count(Resposta) %>%    
          mutate(pct=n/sum(n)),
-       aes(as.factor(Resposta), n)) +
-  geom_bar(stat="identity", fill = 'purple') +
+       aes(as.factor(Resposta), n, fill = Resposta)) +
+  geom_bar(stat="identity") +
+  scale_fill_manual(values = c("#0072B2", "#D55E00", "#009E73"))+
   #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
   labs(x = 'Aluguel de Máquinas', y = 'Frequência Absoluta', title = "Distribuição de Resposta")
 
@@ -357,26 +352,43 @@ rent
 ```{r}
 
 hist_resp <- ggplot(data_train,
-       aes(Prima, Pmaquina3, colour = as.factor(Resposta) )) +
+       aes(Prima, Pmaquina1, colour = as.factor(Resposta) )) +
   geom_point(stat="identity") +
   #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
-  scale_fill_manual(guide_legend(title="Aluguel de Máquinas"), values = c("#D95F02", "#1B9E77", "blue")) + 
+  scale_colour_manual(guide_legend(title="Máquina Alugada"), values = c("#0072B2", "#D55E00", "#009E73")) + 
   #scale_x_discrete(guide = guide_axis(n.dodge=3))+
-  labs(x = 'Aluguel de Máquinas', y = 'Frequência Absoluta', title = "Distribuição de Resposta")
+  labs(y = 'Preço da Máquina 1', x = 'Custo de Matéria Prima', title = "Distribuição de Resposta")
 
+hist_resp
 
-hist_resp <- ggplot(data_train,
-       aes(Prima, Pmaquina3, colour = as.factor(Resposta) )) +
-  geom_point(stat="identity") +
-  #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
-  scale_fill_manual(guide_legend(title="Aluguel de Máquinas"), values = c("#D95F02", "#1B9E77", "blue")) + 
-  #scale_x_discrete(guide = guide_axis(n.dodge=3))+
-  labs(x = 'Aluguel de Máquinas', y = 'Frequência Absoluta', title = "Distribuição de Resposta")
+# hist_resp <- ggplot(data_train,
+#        aes(Prima, Pmaquina1, colour = as.factor(Resposta) )) +
+#   geom_point(stat="identity") +
+#   #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
+#   scale_fill_manual(guide_legend(title="Aluguel de Máquinas"), values = c("#D95F02", "#1B9E77", "blue")) + 
+#   #scale_x_discrete(guide = guide_axis(n.dodge=3))+
+#   labs(x = 'Aluguel de Máquinas', y = 'Frequência Absoluta', title = "Distribuição de Resposta")
 
 
 hist_resp
 
 
+```
+
+```{r}
+hist_resp <- ggplot(data_train,
+       aes(CustoProduto, Prima, colour = as.factor(Resposta) )) +
+  geom_point(stat="identity") +
+  #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
+  scale_colour_manual(guide_legend(title="Máquina Alugada"), values = c("#0072B2", "#D55E00", "#009E73")) + 
+  #scale_x_discrete(guide = guide_axis(n.dodge=3))+
+  labs(y = 'Preço da Máquina 1', x = 'Custo de Matéria Prima', title = "Distribuição de Resposta")
+
+hist_resp
+```
+
+```{r}
+knitr::knit_exit()
 ```
 
 ## Redução de Dimensionalidade
@@ -432,7 +444,7 @@ m1 <- multinom(Resposta2 ~ Pmaquina3 + Prima, data = df_reg)
 
 summary(m1)
 
-unique(predict(m1, newdata = reduced_data1, type = 'class'))
+#unique(predict(m1, newdata = reduced_data1, type = 'class'))
 
 
 ```
