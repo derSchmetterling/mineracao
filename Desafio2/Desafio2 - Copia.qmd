@@ -31,6 +31,7 @@ library(readxl)
 library(GGally)
 library(gamlss)
 library(nnet)
+library(caret)
 ```
 
 # Amostragem e divisão treino e teste
@@ -96,8 +97,16 @@ Temos um conjunto de dados referentes ao aluguel de três máquinas por agricult
 O agricultor conhece apenas o valor de reparo das máquina (Prima) e o preço de aluguel de cada uma (Pmaquina1,Pmaquina2,Pmaquina3), enquanto a companhia tem conhecimento de todas as variáveis. **Assim, queremos construir um modelo que prediza qual máquina determinado agricultor vai alugar, desconsiderando aqueles clientes que não alugaram nenhuma.**
 
 ```{r}
+complete_data <- read.csv('baseprincipal.csv')
 data_train <-  read.csv('basetreino.csv')
 data_test <-  read.csv('baseteste.csv')
+
+complete_data <-  complete_data %>% 
+        mutate_at(vars(CustoProduto), as.integer) %>% 
+        mutate_at(vars(Resposta), as.factor) %>% 
+        filter(Resposta != '0')
+  
+
 data_train <- data_train %>% 
         mutate_at(vars(CustoProduto), as.integer) %>% 
         mutate_at(vars(Resposta), as.factor) %>% 
@@ -209,14 +218,14 @@ df_reduced = pd.DataFrame(X_selected, columns = col_names )
 Vimos anteriormente também que *Pmaquina1,* Pmaquina*2*, *Pmaquina3* tem um correlação linear alta de acima de 0.9, então usaremos arbitrariamente apenas *Pmaquina1*, terminando com o seguinte conjunto de dados:
 
 ```{r}
-df_reg <- data_train %>% 
-  dplyr::select(c('Resposta', 'Pmaquina1', 'Prima'))
-
-df_test <- data_test %>% 
-  dplyr::select(c('Resposta', 'Pmaquina1', 'Prima'))
-
-
-head(df_reg)
+# df_reg <- data_train %>% 
+#   dplyr::select(c('Resposta', 'Pmaquina1', 'Prima'))
+# 
+# df_test <- data_test %>% 
+#   dplyr::select(c('Resposta', 'Pmaquina1', 'Prima'))
+# 
+# 
+# head(df_reg)
 
 ```
 
@@ -391,43 +400,7 @@ hist_resp
 knitr::knit_exit()
 ```
 
-## Redução de Dimensionalidade
-
-```{r}
-library("FactoMineR")
-library("factoextra")
-library(ggcorrplot)
-```
-
-```{r}
-
-dropped_df <- data_train %>% 
-  dplyr::select(-one_of(c('Regiao', 'Id', 'Resposta')))
-
-data_normalized <- scale(dropped_df)
-corr_matrix <- cor(data_normalized)
-
-data.pca <- PCA(corr_matrix, scale = F, graph = F)
-
-
-eigenvalues <- data.pca$eig
-head(eigenvalues[, 1:2])
-
-explained_var <- sum(eigenvalues[1:3, 2])
-print(paste('Porcentagem da variância explicada por PCA 1,2 e 3: ', explained_var))
-
-
-
-```
-
-```{r}
-sort(abs(data.pca$var$contrib[,1]), decreasing = TRUE)[1:5]
-sort(abs(data.pca$var$contrib[,2]), decreasing = TRUE)[1:5]
-sort(abs(data.pca$var$contrib[,3]), decreasing = TRUE)[1:5]
-
-
-
-```
+## 
 
 ## Ajuste de Modelos
 
@@ -437,16 +410,63 @@ Usando as variáveis usadas para a construção das três componentes principais
 
 ```{r}
 
+df_reg <- data_train
+
 df_reg$Resposta2 <- relevel(df_reg$Resposta, ref = "1")
+complete_data$Resposta2 <- relevel(complete_data$Resposta, ref = "1")
 
 
-m1 <- multinom(Resposta2 ~ Pmaquina3 + Prima, data = df_reg)
+m1 <- multinom(Resposta2 ~ Prima + CustoProduto + Regiao +  + Pmaquina1 + Pmaquina2 , data = df_reg)
 
 summary(m1)
 
 #unique(predict(m1, newdata = reduced_data1, type = 'class'))
 
 
+```
+
+```{r}
+z <- summary(m1)$coefficients/summary(m1)$standard.errors
+z
+
+p <- (1 - pnorm(abs(z), 0, 1)) * 2
+p
+```
+
+```{r}
+preds_class <- predict(m1,type = 'class', newdata = data_test)
+preds_score <- predict(m1,type = 'probs', newdata = data_test)
+
+postResample(df_test$Resposta, preds_class)
+```
+
+```{r}
+
+
+totalAccuracy <- c()
+cv <- 10
+cvDivider <- floor(nrow(complete_data) / (cv+1))
+
+for (cv in seq(1:cv)) {
+  # assign chunk to data test
+  dataTestIndex <- c((cv * cvDivider):(cv * cvDivider + cvDivider))
+  dataTest <- complete_data[dataTestIndex,]
+  # everything else to train
+  dataTrain <- complete_data[-dataTestIndex,]
+ 
+  cylModel <-  multinom(Resposta2 ~ Prima + Pmaquina1 + Regiao + CustoProduto, data = dataTrain)
+ 
+  pred <- predict(cylModel, newdata=dataTest, type="class")
+ 
+  #  classification error
+  cv_ac <- postResample(dataTest$Resposta2, pred)[[1]]
+  print(paste('Current Accuracy:',cv_ac,'for CV:',cv))
+  totalAccuracy <- c(totalAccuracy, cv_ac)
+}
+```
+
+```{r}
+ mean(totalAccuracy)  
 ```
 
 ### Random Forest
@@ -469,3 +489,9 @@ t <- tuneRF(df_reg[,-c(1,4)], df_reg[,1],
 rf <- randomForest(Resposta~ Prima + Pmaquina3, data=df_reg, proximity=TRUE, mtry = 2) 
 print(rf)
 ```
+
+## Bibliografia
+
+https://amunategui.github.io/multinomial-neuralnetworks-walkthrough/index.html
+
+https://stats.oarc.ucla.edu/r/dae/multinomial-logistic-regression/
