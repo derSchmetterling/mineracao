@@ -40,7 +40,7 @@ Procedimentos de amostragem e divisão de treino e teste estão disponíveis no 
 
 ```{r}
 # data <-  read_excel('ChoiceBehaviour.xlsx')
-# summary(data)
+# head(data)
 ```
 
 ```{r}
@@ -96,27 +96,36 @@ Temos um conjunto de dados referentes ao aluguel de três máquinas por agricult
 
 O agricultor conhece apenas o valor de reparo das máquina (Prima) e o preço de aluguel de cada uma (Pmaquina1,Pmaquina2,Pmaquina3), enquanto a companhia tem conhecimento de todas as variáveis. **Assim, queremos construir um modelo que prediza qual máquina determinado agricultor vai alugar, desconsiderando aqueles clientes que não alugaram nenhuma.**
 
+*Como não possuimos referências para saber qual a moeda na qual os preços são definidos, usamos o termo **unidades de moeda (u.m)** durante o trabalho.*
+
 ```{r}
 complete_data <- read.csv('baseprincipal.csv')
 data_train <-  read.csv('basetreino.csv')
 data_test <-  read.csv('baseteste.csv')
 
-complete_data <-  complete_data %>% 
-        mutate_at(vars(CustoProduto), as.integer) %>% 
-        mutate_at(vars(Resposta), as.factor) %>% 
-        filter(Resposta != '0')
-  
-
-data_train <- data_train %>% 
+complete_data <-  complete_data[,-1] %>% 
         mutate_at(vars(CustoProduto), as.integer) %>% 
         mutate_at(vars(Resposta), as.factor) %>% 
         filter(Resposta != '0')
 
 
-data_test <- data_test %>% 
+complete_data[,11] <- droplevels(complete_data[,11])
+
+
+data_train <- data_train[,-1] %>% 
         mutate_at(vars(CustoProduto), as.integer) %>% 
         mutate_at(vars(Resposta), as.factor) %>% 
         filter(Resposta != '0')
+
+data_train[,11] <- droplevels(data_train[,11])
+
+
+data_test <- data_test[,-1] %>% 
+        mutate_at(vars(CustoProduto), as.integer) %>% 
+        mutate_at(vars(Resposta), as.factor) %>% 
+        filter(Resposta != '0')
+
+data_test[,11] <- droplevels(data_test[,11])
 
 
 head(data_train)
@@ -132,16 +141,56 @@ aggr(data_test, col = c('green','red'), numbers = TRUE, sortVars = TRUE,
      ylab = c("Proportion in variable","Proportion in dataset"))
 ```
 
-```{r}
+## Custos e Preços
+
+Analisando rapidamente a média e a mediana dos preços, notamos que preços são próximos entre todas as máquinas, temos aproximadamente uma diferença de 50 a 100 u.m entre as possíveis escolhas. Assim, prosseguindo a análise, aplicamos o teste de Kruskal-Wallis para verificar se as distribuições de preço provém da mesma distribuição.
+
+```{r, warning=FALSE}
 summary(data_train[, c('Pmaquina1', 'Pmaquina2', 'Pmaquina3' )])
+```
+
+Assumindo um nível de significância de 5%, não rejeitamos a hipótese nula de que as distribuições são semelhantes.
+
+```{r, warning=FALSE}
+# ks.test(data_train$Pmaquina1, data_train$Pmaquina2 )
+# ks.test(data_train$Pmaquina1, data_train$Pmaquina3 )
+# ks.test(data_train$Pmaquina2, data_train$Pmaquina3 )
+
+c1 <- unlist(data_train['Pmaquina1'], use.names = FALSE)
+c2 <- unlist(data_train['Pmaquina2'], use.names = FALSE)
+c3 <- unlist(data_train['Pmaquina3'], use.names = FALSE)
+
+
+data <- c(c1,c2,c3)
+factors <- c(rep('1', 144), rep('2', 144),rep('3', 144))
+
+kruskal.test(data, factors)
+```
+
+Analogamente, os custos são em média semelhantes entre as máquinas.
+
+```{r}
 summary(data_train[, c('Cmaquina1', 'Cmaquina2', 'Cmaquina3' )])
 ```
 
-```{r}
-hist(data_train[, c('Cmaquina1' )])
-hist(data_train[, c('Cmaquina2' )])
-hist(data_train[, c('Cmaquina3' )])
+```{r, warning=FALSE}
+# ks.test(data_train$Cmaquina1, data_train$Cmaquina2 )
+# ks.test(data_train$Cmaquina1, data_train$Cmaquina3 )
+# ks.test(data_train$Cmaquina2, data_train$Cmaquina3 )
+
+
+c1 <- unlist(data_train['Cmaquina1'], use.names = FALSE)
+c2 <- unlist(data_train['Cmaquina2'], use.names = FALSE)
+c3 <- unlist(data_train['Cmaquina3'], use.names = FALSE)
+
+
+data <- c(c1,c2,c3)
+factors <- c(rep('1', 144), rep('2', 144),rep('3', 144))
+
+kruskal.test(data, factors)
 ```
+
+Assim, uma rápida análise preliminar indica que, em média, o preço e o custos das máquinas não parece diferir. Logo, pode ser que este não seja um fator fundamental para a escolha dos clientes na amostra obtida.
 
 ## Seleção de Features
 
@@ -153,7 +202,7 @@ As variáveis *CustoProduto* e *Prima* foram as que apresentaram menor correlaç
 
 ```{r}
 #numeric <- c("AGE", "SENIORITY")
-df_pearson<- data_train[, -c(1,2,12)]
+df_pearson<- data_train[, -c(1,11)]
 
 
 correl<- cor(df_pearson, method = 'pearson')
@@ -437,10 +486,10 @@ p
 preds_class <- predict(m1,type = 'class', newdata = data_test)
 preds_score <- predict(m1,type = 'probs', newdata = data_test)
 
-postResample(df_test$Resposta, preds_class)
+postResample(data_test$Resposta, preds_class)
 ```
 
-```{r}
+```{r, warning=FALSE}
 
 
 totalAccuracy <- c()
@@ -471,12 +520,16 @@ for (cv in seq(1:cv)) {
 
 ### Random Forest
 
-```{r}
+```{r, warning=FALSE}
 library(randomForest)
 
-df_reg[,1] <- droplevels(df_reg[,1])
+df_reg[,12] <- droplevels(df_reg[,12])
 
-t <- tuneRF(df_reg[,-c(1,4)], df_reg[,1],
+y <-  df_reg[,12]
+x <- df_reg %>% 
+  dplyr::select(c('Pmaquina1', 'Prima'))
+
+t <- tuneRF(x, y,
        stepFactor = 0.5,
        plot = TRUE,
        ntreeTry = 150,
@@ -486,8 +539,88 @@ t <- tuneRF(df_reg[,-c(1,4)], df_reg[,1],
 ```
 
 ```{r}
-rf <- randomForest(Resposta~ Prima + Pmaquina3, data=df_reg, proximity=TRUE, mtry = 2) 
-print(rf)
+
+repeat_cv <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
+set.seed(10727865)
+
+
+forest <- train(
+        
+        # Formula. We are using all variables to predict Species
+        Resposta~., 
+        
+        # Source of data; remove the Species variable
+        data=complete_data, 
+        
+        # `rf` method for random forest
+        method='rf', 
+        
+        # Add repeated cross validation as trControl
+        trControl=repeat_cv,
+        
+        # Accuracy to measure the performance of the model
+        metric='Accuracy')
+
+## Print out the details about the model
+forest$finalModel
+
+names(forest)
+forest$coefnames
+
+```
+
+```{r}
+## Get variable importance, and turn into a data frame
+var_imp <- varImp(forest, scale=FALSE)$importance
+var_imp <- data.frame(variables=row.names(var_imp), importance=var_imp$Overall)
+
+## Create a plot of variable importance
+var_imp %>%
+        
+        ## Sort the data by importance
+        arrange(importance) %>%
+        
+        ## Create a ggplot object for aesthetic
+        ggplot(aes(x=reorder(variables, importance), y=importance)) + 
+        
+        ## Plot the bar graph
+        geom_bar(stat='identity') + 
+        
+        ## Flip the graph to make a horizontal bar plot
+        coord_flip() + 
+        
+        ## Add x-axis label
+        xlab('Variables') +
+        
+        ## Add a title
+        labs(title='Random forest variable importance') + 
+        
+        ## Some layout for the plot
+        theme_minimal() + 
+        theme(axis.text = element_text(size = 10), 
+              axis.title = element_text(size = 15), 
+              plot.title = element_text(size = 20), 
+              )
+```
+
+```{r}
+preds <- predict(rf, newdata = data_test, type = 'response')
+
+postResample(data_test$Resposta, preds)
+```
+
+```{r}
+y_hats <- predict(
+        
+        ## Random forest object
+        object=forest, 
+        
+        ## Data to use for predictions; remove the Species
+        newdata=data_test[, -11])
+
+## Print the accuracy
+accuracy <- mean(y_hats == data_test$Resposta)*100
+cat('Accuracy on testing data: ', round(accuracy, 2), '%',  sep='')
 ```
 
 ## Bibliografia
