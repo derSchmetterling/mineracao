@@ -191,7 +191,7 @@ factors <- c(rep('1', 144), rep('2', 144),rep('3', 144))
 kruskal.test(data, factors)
 ```
 
-Assim, uma rápida análise preliminar indica que, em média, o preço e o custos das máquinas não parece diferir. Logo, pode ser que este não seja um fator fundamental para a escolha dos clientes na amostra obtida.
+Assim, uma rápida análise preliminar indica que, em média, o preço e o custos das máquinas não parece diferir. Logo, a adição de apenas uma dessas características deve ser suficiente para ajustar o modelo.
 
 ## Seleção de Features
 
@@ -447,7 +447,7 @@ hist_resp
 ```
 
 ```{r}
-knitr::knit_exit()
+#knitr::knit_exit()
 ```
 
 ## 
@@ -456,7 +456,7 @@ knitr::knit_exit()
 
 ### Modelo Multinomial
 
-Usando as variáveis usadas para a construção das três componentes principais e excluindo aqueles com alta correlação linear entre si, terminamos com *Prima* e *Pmaquina3*
+Abaixo realizamos o ajuste de um modelo multinomial para predizer qual máquina os fazendeiros comprarão.
 
 ```{r}
 
@@ -466,7 +466,7 @@ df_reg$Resposta2 <- relevel(df_reg$Resposta, ref = "1")
 complete_data$Resposta2 <- relevel(complete_data$Resposta, ref = "1")
 
 
-m1 <- multinom(Resposta2 ~ Prima + CustoProduto + Regiao +  + Pmaquina1 + Pmaquina2 , data = df_reg)
+m1 <- nnet::multinom(Resposta2 ~  Pmaquina1 + Prima, data = df_reg)
 
 summary(m1)
 
@@ -475,13 +475,35 @@ summary(m1)
 
 ```
 
+Além dos coeficientes, realizamos um teste de Wald para verificar a significância estatística dos coeficientes. Abaixo apresentamos os p-valores referentes.
+
 ```{r}
 z <- summary(m1)$coefficients/summary(m1)$standard.errors
-z
 
 p <- (1 - pnorm(abs(z), 0, 1)) * 2
 p
 ```
+
+Verificamos que *Pmaquina1* não é significante nem no modelo da máquina 2 nem no modelo da máquina 3, enquanto *Prima* só é significante para o primeiro.
+
+Em seguida, adicionamos as variáveis *CustoProduto*, *Pmaquinabase* e *Regiao.*
+
+```{r}
+m1 <- nnet::multinom(Resposta2 ~ Prima + CustoProduto + Pmaquinabase + Regiao, data = df_reg)
+```
+
+Aplicando o teste de Wald novamente:
+
+```{r}
+z <- summary(m1)$coefficients/summary(m1)$standard.errors
+
+p <- (1 - pnorm(abs(z), 0, 1)) * 2
+p
+```
+
+Vamos que todas as variáveis são estatisticamente significantes.
+
+Podemos usar o modelo ajustado para e calcular seu potencial preditivo no conjunto de teste.
 
 ```{r}
 preds_class <- predict(m1,type = 'class', newdata = data_test)
@@ -490,21 +512,26 @@ preds_score <- predict(m1,type = 'probs', newdata = data_test)
 postResample(data_test$Resposta, preds_class)
 ```
 
-```{r, warning=FALSE}
+Em seguida, aplicamos um procedimento de leave-one-out para estimar a acurácia do modelo em todos os dados disponíveis (conjunto de treino + conjunto de teste). A implementação funciona excluindo uma observação e usando as outras para
+
+```{r, warning=FALSE, echo=FALSE, prompt=FALSE, results =FALSE}
 
 
 totalAccuracy <- c()
 cv <- 10
-cvDivider <- floor(nrow(complete_data) / (cv+1))
+#cv <- 224
+cvDivider <- floor(nrow(data_train) / (cv+1))
+#cvDivider <- 50
 
 for (cv in seq(1:cv)) {
   # assign chunk to data test
   dataTestIndex <- c((cv * cvDivider):(cv * cvDivider + cvDivider))
   dataTest <- complete_data[dataTestIndex,]
+
   # everything else to train
   dataTrain <- complete_data[-dataTestIndex,]
  
-  cylModel <-  multinom(Resposta2 ~ Prima + Pmaquina1 + Regiao + CustoProduto, data = dataTrain)
+  cylModel <-  nnet::multinom(Resposta2 ~ Prima + CustoProduto + Pmaquinabase + Regiao, data = dataTrain)
  
   pred <- predict(cylModel, newdata=dataTest, type="class")
  
@@ -516,17 +543,20 @@ for (cv in seq(1:cv)) {
 ```
 
 ```{r}
- mean(totalAccuracy)  
+print(paste('Acurácia Modelo Multinomial: ', mean(totalAccuracy)) )
+multinom <- mean(totalAccuracy)
 ```
 
 ### Random Forest
 
+Em seguida ajustamos um modelo RandomForest.
+
 ```{r, warning=FALSE}
 library(randomForest)
 
-df_reg[,12] <- droplevels(df_reg[,12])
+#df_reg[,12] <- droplevels(df_reg[,12])
 
-y <-  df_reg[,12]
+y <-  df_reg[,'Resposta']
 x <- df_reg %>% 
   dplyr::select(c('Pmaquina1', 'Prima'))
 
@@ -540,15 +570,14 @@ t <- tuneRF(x, y,
 ```
 
 ```{r}
-
-repeat_cv <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
 set.seed(10727865)
+repeat_cv <- trainControl(method="cv", number=10, repeats=3, search="random")
 
 
 forest <- train(
         
         # Formula. We are using all variables to predict Species
-        Resposta~., 
+        Resposta~ Prima + CustoProduto + Pmaquinabase + Regiao, 
         
         # Source of data; remove the Species variable
         data=complete_data, 
@@ -563,11 +592,13 @@ forest <- train(
         metric='Accuracy')
 
 ## Print out the details about the model
-forest$finalModel
+rf_model <- forest$finalModel
 
-names(forest)
-forest$coefnames
+#names(forest)
+names(rf_model)
 
+postResample(complete_data$Resposta2, rf_model$predicted)
+rf_model$predicted
 ```
 
 ```{r}
@@ -605,7 +636,7 @@ var_imp %>%
 ```
 
 ```{r}
-preds <- predict(rf, newdata = data_test, type = 'response')
+preds <- predict(rf_model, newdata = data_test, type = 'response')
 
 postResample(data_test$Resposta, preds)
 ```
@@ -639,7 +670,7 @@ f <- list(
 
 
 ## Estimate.
-b <- bamlss(f, family = "multinomial", data = data.frame(data_test),
+b <- bamlss(f, family = "multinomial", data = data.frame(data_train),
   reference = "1")
 
 levels(data_train$Resposta)
@@ -647,7 +678,7 @@ levels(data_train$Resposta)
 
 ### XGBoost
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 #install.packages("xgboost")
 
 library("xgboost")
@@ -756,18 +787,19 @@ print(gp)
 
 ### Neuranet
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 #install.packages('neuralnet')
 library(neuralnet)
 ```
 
 ```{r}
 nn=neuralnet(Resposta~Pmaquina1+Prima,  
-             data=data_train, hidden=c(2,2), linear.output = FALSE)
+             data=data_train, hidden=c(3,5,5,3), linear.output = FALSE)
 ```
 
 ```{r}
 plot(nn)
+?neuralnet
 ```
 
 ```{r}
@@ -777,20 +809,23 @@ predict <- function(data){
   labels <- c("1", "2", "3") 
   prediction_label <- data.frame(max.col(prediction)) %>%  
     mutate(prediction=labels[max.col.prediction.]) %>%  
-    dplyr::select(1) %>%  
+    dplyr::select(2) %>%  
     unlist() 
   table(data$Resposta, prediction_label) 
 }
 
-predict(data_train)
+predict(data_test)
+
+levels(data_train$Resposta)
 ```
 
 ```{r}
-prediction <- data.frame(neuralnet::compute(nn,data.frame(data_train[,-11]))$net.result) 
+prediction <- data.frame(neuralnet::compute(nn,data.frame(data_test[,-11]))$net.result) 
 
 
 prediction_label <- data.frame(max.col(prediction))
 
+postResample(prediction_label, data_test$Resposta)
 ```
 
 ## Bibliografia
