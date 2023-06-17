@@ -661,11 +661,15 @@ xgb_data <- function(data){
    data$Resposta <- ifelse(data$Resposta == '2', 1, data$Resposta)
    data$Resposta <- ifelse(data$Resposta == '3', 2, data$Resposta)
    
-   data_variables <- as.matrix(data[,-11])
+  # data<- data %>%
+  #   dplyr::select(c('Prima', 'Resposta', 'CustoProduto', 'Pmaquina3', 'Pmaquinabase'))
+   
+  data_variables <- as.matrix(data[!(names(data) %in% 'Resposta')])
   data_label <- as.integer(data[,'Resposta'])
   
   
   matrix_xgb <- xgb.DMatrix(data = data_variables, label = data_label)
+  
   
   return(matrix_xgb)
   
@@ -684,6 +688,9 @@ xgb_params <- list("objective" = "multi:softprob",
                    "num_class" = numberOfClasses)
 nround    <- 50 # number of XGBoost rounds
 cv.nfold  <- 5
+
+set.seed(10727865)
+
 
 # Fit cv.nfold * cv.nround XGB models and save OOF predictions
 cv_model <- xgb.cv(params = xgb_params,
@@ -727,6 +734,63 @@ test_prediction <- matrix(test_pred, nrow = numberOfClasses,
 confusionMatrix(factor(test_prediction$max_prob),
                 factor(test_prediction$label),
                 mode = "everything")
+
+```
+
+```{r}
+# get the feature real names
+names <-  colnames(data_train[,-1])
+# compute feature importance matrix
+importance_matrix = xgb.importance(feature_names = names, model = bst_model)
+head(importance_matrix)
+```
+
+```{r}
+# plot
+#install.packages('Ckmeans.1d.dp')
+gp = xgb.ggplot.importance(importance_matrix)
+print(gp) 
+
+
+```
+
+### Neuranet
+
+```{r}
+#install.packages('neuralnet')
+library(neuralnet)
+```
+
+```{r}
+nn=neuralnet(Resposta~Pmaquina1+Prima,  
+             data=data_train, hidden=c(2,2), linear.output = FALSE)
+```
+
+```{r}
+plot(nn)
+```
+
+```{r}
+predict <- function(data){ 
+  prediction <- data.frame(neuralnet::compute(nn,  
+                                              data.frame(data[,-11]))$net.result) 
+  labels <- c("1", "2", "3") 
+  prediction_label <- data.frame(max.col(prediction)) %>%  
+    mutate(prediction=labels[max.col.prediction.]) %>%  
+    dplyr::select(1) %>%  
+    unlist() 
+  table(data$Resposta, prediction_label) 
+}
+
+predict(data_train)
+```
+
+```{r}
+prediction <- data.frame(neuralnet::compute(nn,data.frame(data_train[,-11]))$net.result) 
+
+
+prediction_label <- data.frame(max.col(prediction))
+
 ```
 
 ## Bibliografia
@@ -734,3 +798,7 @@ confusionMatrix(factor(test_prediction$max_prob),
 https://amunategui.github.io/multinomial-neuralnetworks-walkthrough/index.html
 
 https://stats.oarc.ucla.edu/r/dae/multinomial-logistic-regression/
+
+https://rpubs.com/mharris/multiclass_xgboost
+
+https://www.thearmchaircritic.org/tech-journal/build-a-multi-class-classification-neural-network-in-r-in-fifty-lines-of-code
