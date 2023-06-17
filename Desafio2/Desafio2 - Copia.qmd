@@ -106,7 +106,7 @@ data_test <-  read.csv('baseteste.csv')
 
 complete_data <-  complete_data[,-1] %>% 
         mutate_at(vars(CustoProduto), as.integer) %>% 
-        mutate_at(vars(Resposta), as.factor) %>% 
+        mutate_at(vars(Resposta, Regiao), as.factor) %>% 
         filter(Resposta != '0')
 
 
@@ -115,7 +115,7 @@ complete_data[,11] <- droplevels(complete_data[,11])
 
 data_train <- data_train[,-1] %>% 
         mutate_at(vars(CustoProduto), as.integer) %>% 
-        mutate_at(vars(Resposta), as.factor) %>% 
+        mutate_at(vars(Resposta, Regiao), as.factor) %>% 
         filter(Resposta != '0')
 
 data_train[,11] <- droplevels(data_train[,11])
@@ -123,7 +123,7 @@ data_train[,11] <- droplevels(data_train[,11])
 
 data_test <- data_test[,-1] %>% 
         mutate_at(vars(CustoProduto), as.integer) %>% 
-        mutate_at(vars(Resposta), as.factor) %>% 
+        mutate_at(vars(Resposta,Regiao), as.factor) %>% 
         filter(Resposta != '0')
 
 data_test[,11] <- droplevels(data_test[,11])
@@ -512,7 +512,7 @@ preds_score <- predict(m1,type = 'probs', newdata = data_test)
 postResample(data_test$Resposta, preds_class)
 ```
 
-Em seguida, aplicamos um procedimento de leave-one-out para estimar a acurácia do modelo em todos os dados disponíveis (conjunto de treino + conjunto de teste). A implementação funciona excluindo uma observação e usando as outras para
+Em seguida, aplicamos um procedimento de validação cruzada para estimar a acurácia do modelo em todos os dados disponíveis (conjunto de treino + conjunto de teste).
 
 ```{r, warning=FALSE, echo=FALSE, prompt=FALSE, results =FALSE}
 
@@ -793,8 +793,11 @@ library(neuralnet)
 ```
 
 ```{r}
-nn=neuralnet(Resposta~Pmaquina1+Prima,  
-             data=data_train, hidden=c(3,5,5,3), linear.output = FALSE)
+data_train_nn <- data_train %>% mutate_at(vars(Regiao), as.integer)
+data_test_nn <- data_test %>% mutate_at(vars(Regiao), as.integer)
+
+nn=neuralnet(Resposta ~Prima + CustoProduto + Pmaquinabase + Regiao,  
+             data=data_nn, hidden=c(1,2,3,4,5,5,4,3,2,1), linear.output = FALSE)
 ```
 
 ```{r}
@@ -814,19 +817,22 @@ predict <- function(data){
   table(data$Resposta, prediction_label) 
 }
 
-predict(data_test)
+predict(data_test_nn)
 
+data_test_nn[,-11]
 levels(data_train$Resposta)
 ```
 
 ```{r}
-prediction <- data.frame(neuralnet::compute(nn,data.frame(data_test[,-11]))$net.result) 
+prediction <- data.frame(neuralnet::compute(nn,data.frame(data_test_nn[,-11]))$net.result) 
 
 
 prediction_label <- data.frame(max.col(prediction))
 
 postResample(prediction_label, data_test$Resposta)
 ```
+
+### Support Vector Machine
 
 ## Bibliografia
 
