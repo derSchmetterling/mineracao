@@ -552,7 +552,7 @@ multinom <- mean(totalAccuracy)
 
 ### Random Forest
 
-Em seguida ajustamos um modelo RandomForest.
+Em seguida ajustamos um modelo RandomForest. Começamos ajustando os hiperparâmetros referente ao modelo e realizando um procedimento de validação cruzada no conjunto completo de dados (treino + teste). Usamos o mesmo conjunto de covariáveis selecionado no modelo multinomial (*Prima, CustoProduto, Pmaquinabase e Regiao*)
 
 ```{r, warning=FALSE}
 library(randomForest)
@@ -561,19 +561,23 @@ set.seed(10727865)
 repeat_cv <- trainControl(method="cv", number=10, repeats=3, search="random")
 
 
+tunegrid <- expand.grid(.mtry=9)
+
 forest <- train(
         
         # Formula. We are using all variables to predict Species
         Resposta~ Prima + CustoProduto + Pmaquinabase + Regiao, 
         
         # Source of data; remove the Species variable
-        data=data_train, 
+        data=complete_data, 
         
         # `rf` method for random forest
         method='rf', 
         
         # Add repeated cross validation as trControl
         trControl=repeat_cv,
+        #tuneGrid = tunegrid,
+        tuneLength = 6,
         
         # Accuracy to measure the performance of the model
         metric='Accuracy')
@@ -581,12 +585,17 @@ forest <- train(
 ## Print out the details about the model
 rf_model <- forest$finalModel
 
-#names(forest)
-names(rf_model)
-
-postResample(data_train$Resposta, rf_model$predicted)
-
 ```
+
+Ao verificar a acurácia, notamos que obtemos um bom desempenho, mas talvez ainda seja possível simplificar o modelo.
+
+```{r}
+test_pred <- predict(forest, complete_data)
+postResample(complete_data$Resposta, test_pred)
+rf <- postResample(complete_data$Resposta, test_pred)
+```
+
+A seguir, verificamos a importância (aqui definido como o decréscimo do índice de Gini a cada partição do modelo) das covariáveis na classificação do modelo.
 
 ```{r}
 ## Get variable importance, and turn into a data frame
@@ -622,24 +631,34 @@ var_imp %>%
               )
 ```
 
-```{r}
-preds <- predict(rf_model, newdata = data_test, type = 'response')
-
-postResample(data_test$Resposta, preds)
-```
+Vemos que a Regiao é a característica menos relevante para a classificação. Assim, repetimos o procedimento de ajuste de hiperparâmetros e validação cruzada sem essa covariável.
 
 ```{r}
-y_hats <- predict(
+forest <- train(
         
-        ## Random forest object
-        object=forest, 
+        # Formula. We are using all variables to predict Species
+        Resposta~ Prima + CustoProduto + Pmaquinabase, 
         
-        ## Data to use for predictions; remove the Species
-        newdata=data_test[, -11])
+        # Source of data; remove the Species variable
+        data=complete_data, 
+        
+        # `rf` method for random forest
+        method='rf', 
+        
+        # Add repeated cross validation as trControl
+        trControl=repeat_cv,
+        #tuneGrid = tunegrid,
+        tuneLength = 6,
+        
+        # Accuracy to measure the performance of the model
+        metric='Accuracy')
 
-## Print the accuracy
-accuracy <- mean(y_hats == data_test$Resposta)*100
-cat('Accuracy on testing data: ', round(accuracy, 2), '%',  sep='')
+## Print out the details about the model
+rf_model <- forest$finalModel
+
+test_pred <- predict(forest, complete_data)
+postResample(complete_data$Resposta, test_pred)
+rf <- postResample(complete_data$Resposta, test_pred)
 ```
 
 ### Modelo Multinomial Bayesiano
@@ -651,19 +670,21 @@ cat('Accuracy on testing data: ', round(accuracy, 2), '%',  sep='')
 library(gamlss)
 
 f <- list(
-  Resposta ~ Pmaquinabase,
-  Resposta ~ Pmaquinabase,
-  Resposta ~Pmaquinabase
+  Resposta ~ Pmaquinabase + Prima + Pmaquina1,
+  Resposta ~ Pmaquinabase + Prima + Pmaquina1
 )
 
 
-train_bayes <- scale(data_train[, c('Pmaquinabase', 'Prima')])
-train_bayes$Resposta <- data_train$Resposta
+train_bayes <- data.frame(scale(data_train[, c('Pmaquinabase', 'Prima', 'Pmaquina1', 'Pmaquina2')]))
+train_bayes <- cbind(train_bayes,make.names(data_train$Resposta))
+colnames(train_bayes) <-  c('Pmaquinabase', 'Prima', 'Pmaquina1', 'Resposta')
+train_bayes$Resposta <- as.integer(train_bayes$Resposta)
 
 ## Estimate.
-b <- bamlss(f, family = "multinomial", data = train_bayes,reference = "1")
-?bamlss
+b <- bamlss(f, family = "multinomial", data = train_bayes,reference = "X1")
 
+
+train_bayes$Resposta[[1]]
 
 scale(data.frame(data_train))
 levels(data_train$Resposta)
