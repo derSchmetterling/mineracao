@@ -466,6 +466,9 @@ df_reg$Resposta2 <- relevel(df_reg$Resposta, ref = "1")
 complete_data$Resposta2 <- relevel(complete_data$Resposta, ref = "1")
 
 
+# df_reg$Pmaquina1 <- scale(df_reg$Pmaquina1)
+# df_reg$Prima <- scale(df_reg$Prima)
+
 m1 <- nnet::multinom(Resposta2 ~  Pmaquina1 + Prima, data = df_reg)
 
 summary(m1)
@@ -554,22 +557,6 @@ Em seguida ajustamos um modelo RandomForest.
 ```{r, warning=FALSE}
 library(randomForest)
 
-#df_reg[,12] <- droplevels(df_reg[,12])
-
-y <-  df_reg[,'Resposta']
-x <- df_reg %>% 
-  dplyr::select(c('Pmaquina1', 'Prima'))
-
-t <- tuneRF(x, y,
-       stepFactor = 0.5,
-       plot = TRUE,
-       ntreeTry = 150,
-       trace = TRUE,
-       improve = 0.05)
-
-```
-
-```{r}
 set.seed(10727865)
 repeat_cv <- trainControl(method="cv", number=10, repeats=3, search="random")
 
@@ -580,7 +567,7 @@ forest <- train(
         Resposta~ Prima + CustoProduto + Pmaquinabase + Regiao, 
         
         # Source of data; remove the Species variable
-        data=complete_data, 
+        data=data_train, 
         
         # `rf` method for random forest
         method='rf', 
@@ -597,8 +584,8 @@ rf_model <- forest$finalModel
 #names(forest)
 names(rf_model)
 
-postResample(complete_data$Resposta2, rf_model$predicted)
-rf_model$predicted
+postResample(data_train$Resposta, rf_model$predicted)
+
 ```
 
 ```{r}
@@ -664,15 +651,21 @@ cat('Accuracy on testing data: ', round(accuracy, 2), '%',  sep='')
 library(gamlss)
 
 f <- list(
-  Resposta ~ .,
-  Resposta ~ .
+  Resposta ~ Pmaquinabase,
+  Resposta ~ Pmaquinabase,
+  Resposta ~Pmaquinabase
 )
 
 
-## Estimate.
-b <- bamlss(f, family = "multinomial", data = data.frame(data_train),
-  reference = "1")
+train_bayes <- scale(data_train[, c('Pmaquinabase', 'Prima')])
+train_bayes$Resposta <- data_train$Resposta
 
+## Estimate.
+b <- bamlss(f, family = "multinomial", data = train_bayes,reference = "1")
+?bamlss
+
+
+scale(data.frame(data_train))
 levels(data_train$Resposta)
 ```
 
@@ -833,6 +826,61 @@ postResample(prediction_label, data_test$Resposta)
 ```
 
 ### Support Vector Machine
+
+```{r}
+
+-> Prima + Pmaquinabase
+library(e1071) 
+#install.packages('e1071')
+svm1 <- svm(Resposta~  Prima + Pmaquinabase, data=data_train, 
+          method="C-classification", kernal="radial", 
+          gamma=0.1, cost=10)
+summary(svm1)
+svm1$SV 
+
+?svm
+```
+
+```{r}
+plot(svm1, data_train, Pmaquinabase ~ Prima)
+```
+
+```{r}
+prediction <- predict(svm1, data_test)
+xtab <- table(data_test$Resposta, prediction)
+xtab
+```
+
+```{r}
+
+#install.packages('MLmetrics')
+library(MLmetrics)
+# Setup for cross validation
+ctrl <- trainControl(method="repeatedcv",   # 10fold cross validation
+                     repeats=10,         # do 5 repetitions of cv
+                     summaryFunction=multiClassSummary,   # Use AUC to pick the best model
+                     classProbs=FALSE)
+
+#Train and Tune the SVM
+svm.tune <- train(x=data_train[, c('Pmaquinabase', 'Prima')],
+                  y= make.names(data_train[,'Resposta']),
+                  method = "mlpKerasDropoutCost",   # Radial kernel
+                  tuneLength = 5,                   # 5 values of the cost function
+                   # Center and scale data
+                  metric="Accuracy",
+                  trControl=ctrl)
+?train
+?svm
+svm.tune
+?trainControl
+svm_final <-svm.tune$finalModel
+?install_tensorflow
+
+```
+
+```{r}
+pred <- predict(svm.tune, data_test, type = "prob") 
+```
 
 ## Bibliografia
 
