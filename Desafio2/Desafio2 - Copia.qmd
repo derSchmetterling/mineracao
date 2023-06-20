@@ -121,6 +121,7 @@ data_train <- data_train[,-1] %>%
 data_train[,11] <- droplevels(data_train[,11])
 
 
+
 data_test <- data_test[,-1] %>% 
         mutate_at(vars(CustoProduto), as.integer) %>% 
         mutate_at(vars(Resposta,Regiao), as.factor) %>% 
@@ -145,6 +146,14 @@ aggr(data_test, col = c('green','red'), numbers = TRUE, sortVars = TRUE,
 ## Custos e Preços
 
 Analisando rapidamente a média e a mediana dos preços, notamos que preços são próximos entre todas as máquinas, temos aproximadamente uma diferença de 50 a 100 u.m entre as possíveis escolhas. Assim, prosseguindo a análise, aplicamos o teste de Kruskal-Wallis para verificar se as distribuições de preço provém da mesma distribuição.
+
+$$
+H_0: \text{Os preços das máquinas provém da mesma distribuição}
+$$
+
+$$
+H_1: \text{Os preços das máquinas não provém da mesma distribuição}
+$$
 
 ```{r, warning=FALSE}
 summary(data_train[, c('Pmaquina1', 'Pmaquina2', 'Pmaquina3' )])
@@ -191,7 +200,15 @@ factors <- c(rep('1', 144), rep('2', 144),rep('3', 144))
 kruskal.test(data, factors)
 ```
 
-Assim, uma rápida análise preliminar indica que, em média, o preço e o custos das máquinas não parece diferir. Logo, a adição de apenas uma dessas características deve ser suficiente para ajustar o modelo.
+Outro fator relevante, é que as variável *Pmaquinabase* e *Cmaquina2* possuem os mesmo valores, tratando de colunas duplicadas.
+
+```{r}
+
+
+sum(data_train['Pmaquinabase'] == data_train['Cmaquina2']) == nrow(data_train)
+```
+
+Assim, uma análise preliminar indica que, em média, o preço e o custos das máquinas não parece diferir. Logo, a adição de apenas uma dessas características deve ser suficiente para ajustar o modelo.
 
 ## Seleção de Features
 
@@ -243,6 +260,29 @@ df = df[df['Resposta'] != 0]
 df['CustoProduto'] = df['CustoProduto'].astype(int)
 df = df.drop('Id', axis = 1)
 df['CustoProduto'] = df['CustoProduto'].astype(str).apply(lambda x: x[:-2])
+
+
+```
+
+```{python}
+
+import matplotlib.pyplot as plt
+
+
+fig = plt.figure()
+
+
+ax = plt.axes(projection='3d')
+
+# Data for a three-dimensional line
+
+ax.scatter3D(xs = df['CustoProduto'].astype(float), ys= df['Prima'].astype(float), zs = df['Pmaquinabase'], c = df['Resposta'],  cmap = 'Greens')
+
+
+df['CustoProduto']
+
+
+plt.show()
 
 
 ```
@@ -456,7 +496,7 @@ hist_resp
 
 ### Modelo Multinomial
 
-Abaixo realizamos o ajuste de um modelo multinomial para predizer qual máquina os fazendeiros comprarão.
+Abaixo realizamos o ajuste de um modelo multinomial para predizer qual máquina os fazendeiros comprarão. Começamos com as covariáveis indicadas pela análise F-Score: *Pmaquina1* e *Prima*
 
 ```{r}
 
@@ -489,10 +529,12 @@ p
 
 Verificamos que *Pmaquina1* não é significante nem no modelo da máquina 2 nem no modelo da máquina 3, enquanto *Prima* só é significante para o primeiro.
 
-Em seguida, adicionamos as variáveis *CustoProduto*, *Pmaquinabase* e *Regiao.*
+Em seguida, adicionamos as variáveis *CustoProduto*, *Pmaquinabase* e *Regiao* e removemos *Pmaquina1.*
 
 ```{r}
 m1 <- nnet::multinom(Resposta2 ~ Prima + CustoProduto + Pmaquinabase + Regiao, data = df_reg)
+
+summary(m1)
 ```
 
 Aplicando o teste de Wald novamente:
@@ -513,46 +555,47 @@ preds_class <- predict(m1,type = 'class', newdata = data_test)
 preds_score <- predict(m1,type = 'probs', newdata = data_test)
 
 postResample(data_test$Resposta, preds_class)
+multinom <- postResample(data_test$Resposta, preds_class)[[1]]
 ```
 
-Em seguida, aplicamos um procedimento de validação cruzada para estimar a acurácia do modelo em todos os dados disponíveis (conjunto de treino + conjunto de teste).
+Em seguida, aplicamos um procedimento de validação cruzada para estimar a acurácia geral do modelo no conjunto de teste.
 
 ```{r, warning=FALSE, echo=FALSE, prompt=FALSE, results =FALSE}
 
-
-totalAccuracy <- c()
-cv <- 10
-#cv <- 224
-cvDivider <- floor(nrow(data_train) / (cv+1))
-#cvDivider <- 50
-
-for (cv in seq(1:cv)) {
-  # assign chunk to data test
-  dataTestIndex <- c((cv * cvDivider):(cv * cvDivider + cvDivider))
-  dataTest <- complete_data[dataTestIndex,]
-
-  # everything else to train
-  dataTrain <- complete_data[-dataTestIndex,]
- 
-  cylModel <-  nnet::multinom(Resposta2 ~ Prima + CustoProduto + Pmaquinabase + Regiao, data = dataTrain)
- 
-  pred <- predict(cylModel, newdata=dataTest, type="class")
- 
-  #  classification error
-  cv_ac <- postResample(dataTest$Resposta2, pred)[[1]]
-  print(paste('Current Accuracy:',cv_ac,'for CV:',cv))
-  totalAccuracy <- c(totalAccuracy, cv_ac)
-}
+# 
+# totalAccuracy <- c()
+# cv <- 10
+# #cv <- 224
+# cvDivider <- floor(nrow(data_train) / (cv+1))
+# #cvDivider <- 50
+# 
+# for (cv in seq(1:cv)) {
+#   # assign chunk to data test
+#   dataTestIndex <- c((cv * cvDivider):(cv * cvDivider + cvDivider))
+#   dataTest <- data_test[dataTestIndex,]
+# 
+#   # everything else to train
+#   dataTrain <- complete_data[-dataTestIndex,]
+#  
+#   cylModel <-  nnet::multinom(Resposta2 ~ Prima + CustoProduto + Pmaquinabase + Regiao, data = dataTrain)
+#  
+#   pred <- predict(cylModel, newdata=dataTest, type="class")
+#  
+#   #  classification error
+#   cv_ac <- postResample(dataTest$Resposta2, pred)[[1]]
+#   print(paste('Current Accuracy:',cv_ac,'for CV:',cv))
+#   totalAccuracy <- c(totalAccuracy, cv_ac)
+# }
 ```
 
 ```{r}
-print(paste('Acurácia Modelo Multinomial: ', mean(totalAccuracy)) )
-multinom <- mean(totalAccuracy)
+# print(paste('Acurácia Modelo Multinomial: ', mean(totalAccuracy)) )
+# multinom <- mean(totalAccuracy)
 ```
 
 ### Random Forest
 
-Em seguida ajustamos um modelo RandomForest. Começamos ajustando os hiperparâmetros referente ao modelo e realizando um procedimento de validação cruzada no conjunto completo de dados (treino + teste). Usamos o mesmo conjunto de covariáveis selecionado no modelo multinomial (*Prima, CustoProduto, Pmaquinabase e Regiao*)
+Em seguida ajustamos um modelo RandomForest. Começamos ajustando os hiperparâmetros referente ao modelo e realizando um procedimento de validação cruzada no conjunto de treino. Usamos o mesmo conjunto de covariáveis selecionado no modelo multinomial (*Prima, CustoProduto, Pmaquinabase e Regiao*)
 
 ```{r, warning=FALSE, message=FALSE}
 library(randomForest)
@@ -564,7 +607,7 @@ repeat_cv <- trainControl(method="cv", number=10, repeats=3, search="random")
 
 tunegrid <- expand.grid(.mtry=9)
 
-forest <- train(
+forest <- caret::train(
         
         # Formula. We are using all variables to predict Species
         Resposta~ Prima + CustoProduto + Pmaquinabase + Regiao, 
@@ -577,9 +620,7 @@ forest <- train(
         
         # Add repeated cross validation as trControl
         trControl=repeat_cv,
-        #tuneGrid = tunegrid,
         tuneLength = 10,
-        
         tuneGrid = tunegrid,
 
         
@@ -588,7 +629,7 @@ forest <- train(
 
 ## Print out the details about the model
 rf_model <- forest$finalModel
-?train
+rf_model
 names(rf_model)
 forest$coefnames
 ```
@@ -642,7 +683,7 @@ var_imp %>%
 Vemos que a Regiao é a característica menos relevante para a classificação. Assim, repetimos o procedimento de ajuste de hiperparâmetros sem essa covariável.
 
 ```{r}
-forest <- train(
+forest <- caret::train(
         
         # Formula. We are using all variables to predict Species
         Resposta~ Prima + CustoProduto + Pmaquinabase, 
@@ -666,8 +707,10 @@ rf_model <- forest$finalModel
 
 test_pred <- predict(forest, data_test)
 postResample(data_test$Resposta, test_pred)
-rf <- postResample(data_test$Resposta, test_pred)
+
 ```
+
+Vemos que com a retirada de *Regiao*, a acurácia do modelo sofre um decréscimo de 10%, logo não é viável retirá-la. Continuamos com o primeiro modelo de *RandomForest*.
 
 ### Modelo Multinomial Bayesiano
 
@@ -700,9 +743,12 @@ levels(data_train$Resposta)
 
 ### XGBoost
 
+Abaixo aplicamos um modelo de *ensemble* chamado de XGBoost. Analogamente ao RandomForest, temos a combinação de diversas árvores de decisão, porém aqui cada ajuste tem acesso aos resíduos do ajuste anterior, de forma que o modelo aprenda com as classificações errôneas.
+
+Ajustamos o XGBoost sem a variável *Região,* pois o método não permite a adição de variável categóricas
+
 ```{r, warning=FALSE, message=FALSE}
 #install.packages("xgboost")
-
 library("xgboost")
 
 
@@ -714,8 +760,9 @@ xgb_data <- function(data){
    data$Resposta <- ifelse(data$Resposta == '2', 1, data$Resposta)
    data$Resposta <- ifelse(data$Resposta == '3', 2, data$Resposta)
    
-  # data<- data %>%
-  #   dplyr::select(c('Prima', 'Resposta', 'CustoProduto', 'Pmaquina3', 'Pmaquinabase'))
+  data<- data %>%
+    dplyr::select(c('Prima', 'Resposta', 'CustoProduto', 'Pmaquinabase', 'Regiao')) %>% 
+    mutate_at(vars(Regiao), as.integer)
    
   data_variables <- as.matrix(data[!(names(data) %in% 'Resposta')])
   data_label <- as.integer(data[,'Resposta'])
@@ -730,8 +777,8 @@ xgb_data <- function(data){
 
 
 
-train_matrix <- xgb_data(data_train[, -1])
-test_matrix <- xgb_data(data_test[,-1])
+train_matrix <- xgb_data(data_train)
+test_matrix <- xgb_data(data_test)
 
 ```
 
@@ -756,70 +803,6 @@ cv_model <- xgb.cv(params = xgb_params,
                    nfold = cv.nfold,
                    verbose = FALSE,
                    prediction = TRUE)
-
-
-
-
-
-
-
-```
-
-```{r}
-
-# peso 
-table(data_train$Resposta)/144
-
-xgb_params <- list("objective" = "multi:softmax",
-                   "eval_metric" = "merror",
-                   "num_class" = numberOfClasses,
-                   "booster" = 'dart',
-                   "nrounds" = 50,
-                   "rate_drop" = 0.2,
-                   "stratified" = T)
-
-
-data_trainb <- data_train %>% 
-   mutate(weights = case_when(Resposta == '1' ~ 1/0.27,
-                           Resposta == '2' ~ 1/0.39,
-                           Resposta == '3' ~1/0.17))
-
-data_testb <- data_test %>% 
-   mutate(weights = case_when(Resposta == '1' ~ 1/0.27,
-                           Resposta == '2' ~ 1/0.39,
-                           Resposta == '3' ~1/0.17))
-
-
-
-aux_train <- data_trainb[, c('Pmaquinabase', 'Prima', 'CustoProduto', 'Resposta')]
-aux_test <- data_testb[, c('Pmaquinabase', 'Prima', 'CustoProduto', 'Resposta')]
-trainbmatrix <- xgb_data(aux_train)
-testebmatrix <- xgb_data(aux_test)
-
-
-
-m1 <- xgboost(data = trainbmatrix, nrounds = 50, weight = data_trainb[, 'weights'],params = xgb_params)
-
-#m1 <- xgb.train(data = trainbmatrix, nrounds = 50,params = xgb_params)
-
-
-OOF_prediction <- data.frame(predict(m1, newdata = testebmatrix)) %>%
-  mutate(Resposta = data_test[, 'Resposta'])
-colnames(OOF_prediction) <- c('preds', 'Resposta')
-
-confusionMatrix(factor(OOF_prediction$preds),
-                factor(as.integer(OOF_prediction$Resposta)-1),
-                mode = "everything")
-```
-
-```{r}
-OOF_prediction <- data.frame(predict(m1, newdata = trainbmatrix)) %>%
-  mutate(Resposta = data_train[, 'Resposta'])
-colnames(OOF_prediction) <- c('preds', 'Resposta')
-
-confusionMatrix(factor(OOF_prediction$preds),
-                factor(as.integer(OOF_prediction$Resposta)-1),
-                mode = "everything")
 
 ```
 
@@ -861,7 +844,7 @@ confusionMatrix(factor(test_prediction$max_prob),
 
 ```{r}
 # get the feature real names
-names <-  colnames(data_train)
+names <-  colnames(data_train[, c('Prima', 'CustoProduto', 'Pmaquinabase', 'Regiao') ])
 # compute feature importance matrix
 importance_matrix = xgb.importance(feature_names = names, model = bst_model)
 head(importance_matrix)
@@ -876,122 +859,7 @@ print(gp)
 
 ```
 
-```{r, warning=FALSE, message=FALSE}
-#install.packages('mlr')
-library(mlr)
-#convert characters to factors
-fact_col <- colnames(data_train)[sapply(data_train,is.character)]
-
-#for(i in fact_col) set(train,j=i,value = factor(train[[i]]))
-#for (i in fact_col) set(test,j=i,value = factor(test[[i]]))
-
-#create tasks
-
-data_train2 <- data_train[, c('Pmaquinabase', 'CustoProduto', 'Prima', 'Resposta')]
-data_test2 <- data_test[, c('Pmaquinabase', 'CustoProduto', 'Prima', 'Resposta')]
-
-
-traintask <- makeClassifTask (data = data_train2,target = "Resposta")
-testtask <- makeClassifTask (data = data_test2,target = "Resposta")
-
-#do one hot encoding`<br/> 
-#traintask <- createDummyFeatures (obj = traintask) 
-#testtask <- createDummyFeatures (obj = testtask)
-```
-
-```{r}
-#create learner
-lrn <- makeLearner("classif.xgboost",predict.type = "response", weights = T)
-lrn$par.vals <- list( objective="multi:softprob", eval_metric="merror", nrounds=100L, eta=0.1)
-
-?makeLearner
-
-#getLearnerProperties(lrn)
-#lrn$weights <- data_trainb[, 'weights']
-
-
-#set parameter space
-params <- makeParamSet( makeDiscreteParam("booster",values = c("gbtree","gblinear")), makeIntegerParam("max_depth",lower = 3L,upper = 10L), makeNumericParam("min_child_weight",lower = 1L,upper = 10L), makeNumericParam("subsample",lower = 0.5,upper = 1), makeNumericParam("colsample_bytree",lower = 0.5,upper = 1))
-
-#set resampling strategy
-rdesc <- makeResampleDesc("CV",stratify = T,iters=5L)
-```
-
-```{r, warning=FALSE, message=FALSE}
-library(parallel)
-library(parallelMap) 
-parallelStartSocket(cpus = detectCores())
-
-
-ctrl <- makeTuneControlRandom(maxit = 10L)
-
-#parameter tuning
-mytune <- tuneParams(learner = lrn, task = traintask, resampling = rdesc, measures = acc, par.set = params, control = ctrl, show.info = T)
-```
-
-```{r}
-#set hyperparameters
-lrn_tune <- setHyperPars(lrn,par.vals = mytune$x)
-
-#train model
-xgmodel <- train(learner = lrn_tune,task = traintask)
-
-#predict model
-xgpred <- predict(xgmodel,testtask)
-names(xgmodel)
-xgmodel$features
-
-confusionMatrix(xgpred$data$response,xgpred$data$truth)
-```
-
-### Neuranet
-
-```{r, message=FALSE, warning=FALSE}
-#install.packages('neuralnet')
-library(neuralnet)
-
-?neuralnet
-```
-
-```{r}
-data_train_nn <- data_train %>% mutate_at(vars(Regiao), as.integer)
-data_test_nn <- data_test %>% mutate_at(vars(Regiao), as.integer)
-
-nn=neuralnet(Resposta ~Prima + CustoProduto + Pmaquinabase + Regiao,  
-             data=data_train_nn, hidden=c(1,2,3,4,5,5,4,3,2,1), linear.output = FALSE)
-```
-
-```{r}
-plot(nn)
-?neuralnet
-```
-
-```{r}
-predict <- function(data){ 
-  prediction <- data.frame(neuralnet::compute(nn,  
-                                              data.frame(data[,-11]))$net.result) 
-  labels <- c("1", "2", "3") 
-  prediction_label <- data.frame(max.col(prediction)) %>%  
-    mutate(prediction=labels[max.col.prediction.]) %>%  
-    dplyr::select(2) %>%  
-    unlist() 
-  table(data$Resposta, prediction_label) 
-}
-
-predict(data_test_nn)
-
-data_test_nn[,-11]
-levels(data_train$Resposta)
-```
-
-```{r}
-prediction <- data.frame(neuralnet::compute(nn,data.frame(data_test_nn[,-11]))$net.result) 
-
-
-prediction_label <- data.frame(max.col(prediction))
-
-postResample(prediction_label, data_test$Resposta)
-```
+### 
 
 ### Support Vector Machine
 
@@ -1001,8 +869,8 @@ postResample(prediction_label, data_test$Resposta)
 library(e1071) 
 #install.packages('e1071')
 svm1 <- svm(Resposta~  Prima + Pmaquinabase, data=data_train, 
-          method="C-classification", kernal="radial", 
-          gamma=0.1, cost=10)
+          method="C-classification", kernel="radial", 
+          gamma=0.1, cost=10, scale = T)
 summary(svm1)
 svm1$SV 
 
@@ -1030,20 +898,17 @@ ctrl <- trainControl(method="repeatedcv",   # 10fold cross validation
                      classProbs=FALSE)
 
 #Train and Tune the SVM
-svm.tune <- train(x=data_train[, c('Pmaquinabase', 'Prima')],
+svm.tune <- train(x=data_train[, c('Pmaquinabase', 'Prima', 'CustoProduto')],
                   y= make.names(data_train[,'Resposta']),
-                  method = "mlpKerasDropoutCost",   # Radial kernel
-                  tuneLength = 5,                   # 5 values of the cost function
+                  method = "dwdRadial",   # Radial kernel
+                  tuneLength = 5, 
+                  preProcess = c('BoxCox'),
                    # Center and scale data
                   metric="Accuracy",
                   trControl=ctrl)
-?train
-?svm
-svm.tune
-?trainControl
-svm_final <-svm.tune$finalModel
-?install_tensorflow
+install.packages('adaboost')
 
+?train
 ```
 
 ```{r}
