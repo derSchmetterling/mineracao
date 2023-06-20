@@ -554,11 +554,12 @@ multinom <- mean(totalAccuracy)
 
 Em seguida ajustamos um modelo RandomForest. Começamos ajustando os hiperparâmetros referente ao modelo e realizando um procedimento de validação cruzada no conjunto completo de dados (treino + teste). Usamos o mesmo conjunto de covariáveis selecionado no modelo multinomial (*Prima, CustoProduto, Pmaquinabase e Regiao*)
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 library(randomForest)
 
 set.seed(10727865)
 repeat_cv <- trainControl(method="cv", number=10, repeats=3, search="random")
+
 
 
 tunegrid <- expand.grid(.mtry=9)
@@ -569,7 +570,7 @@ forest <- train(
         Resposta~ Prima + CustoProduto + Pmaquinabase + Regiao, 
         
         # Source of data; remove the Species variable
-        data=complete_data, 
+        data=data_train, 
         
         # `rf` method for random forest
         method='rf', 
@@ -577,22 +578,29 @@ forest <- train(
         # Add repeated cross validation as trControl
         trControl=repeat_cv,
         #tuneGrid = tunegrid,
-        tuneLength = 6,
+        tuneLength = 10,
+        
+        tuneGrid = tunegrid,
+
         
         # Accuracy to measure the performance of the model
         metric='Accuracy')
 
 ## Print out the details about the model
 rf_model <- forest$finalModel
-
+?train
+names(rf_model)
+forest$coefnames
 ```
 
-Ao verificar a acurácia, notamos que obtemos um bom desempenho, mas talvez ainda seja possível simplificar o modelo.
+Abaixo apresentamos a acurácia no conjunto de teste.
 
 ```{r}
-test_pred <- predict(forest, complete_data)
-postResample(complete_data$Resposta, test_pred)
-rf <- postResample(complete_data$Resposta, test_pred)
+train_acc <- postResample(data_train$Resposta, rf_model$pred)
+test_pred <- predict(forest, data_test)
+postResample(data_test$Resposta, test_pred)
+
+rf <- postResample(data_test$Resposta, test_pred)
 ```
 
 A seguir, verificamos a importância (aqui definido como o decréscimo do índice de Gini a cada partição do modelo) das covariáveis na classificação do modelo.
@@ -631,7 +639,7 @@ var_imp %>%
               )
 ```
 
-Vemos que a Regiao é a característica menos relevante para a classificação. Assim, repetimos o procedimento de ajuste de hiperparâmetros e validação cruzada sem essa covariável.
+Vemos que a Regiao é a característica menos relevante para a classificação. Assim, repetimos o procedimento de ajuste de hiperparâmetros sem essa covariável.
 
 ```{r}
 forest <- train(
@@ -640,7 +648,7 @@ forest <- train(
         Resposta~ Prima + CustoProduto + Pmaquinabase, 
         
         # Source of data; remove the Species variable
-        data=complete_data, 
+        data=data_train, 
         
         # `rf` method for random forest
         method='rf', 
@@ -656,9 +664,9 @@ forest <- train(
 ## Print out the details about the model
 rf_model <- forest$finalModel
 
-test_pred <- predict(forest, complete_data)
-postResample(complete_data$Resposta, test_pred)
-rf <- postResample(complete_data$Resposta, test_pred)
+test_pred <- predict(forest, data_test)
+postResample(data_test$Resposta, test_pred)
+rf <- postResample(data_test$Resposta, test_pred)
 ```
 
 ### Modelo Multinomial Bayesiano
@@ -721,16 +729,20 @@ xgb_data <- function(data){
 }
 
 
-train_matrix <- xgb_data(data_train)
-test_matrix <- xgb_data(data_test)
+
+train_matrix <- xgb_data(data_train[, -1])
+test_matrix <- xgb_data(data_test[,-1])
 
 ```
 
 ```{r}
+
 numberOfClasses <- length(unique(data_train$Resposta))
 xgb_params <- list("objective" = "multi:softprob",
-                   "eval_metric" = "mlogloss",
-                   "num_class" = numberOfClasses)
+                   "eval_metric" = "merror",
+                   "num_class" = numberOfClasses,
+                   "booster" = 'dart',
+                   "nrounds" = 50)
 nround    <- 50 # number of XGBoost rounds
 cv.nfold  <- 5
 
@@ -744,16 +756,81 @@ cv_model <- xgb.cv(params = xgb_params,
                    nfold = cv.nfold,
                    verbose = FALSE,
                    prediction = TRUE)
+
+
+
+
+
+
+
+```
+
+```{r}
+
+# peso 
+table(data_train$Resposta)/144
+
+xgb_params <- list("objective" = "multi:softmax",
+                   "eval_metric" = "merror",
+                   "num_class" = numberOfClasses,
+                   "booster" = 'dart',
+                   "nrounds" = 50,
+                   "rate_drop" = 0.2,
+                   "stratified" = T)
+
+
+data_trainb <- data_train %>% 
+   mutate(weights = case_when(Resposta == '1' ~ 1/0.27,
+                           Resposta == '2' ~ 1/0.39,
+                           Resposta == '3' ~1/0.17))
+
+data_testb <- data_test %>% 
+   mutate(weights = case_when(Resposta == '1' ~ 1/0.27,
+                           Resposta == '2' ~ 1/0.39,
+                           Resposta == '3' ~1/0.17))
+
+
+
+aux_train <- data_trainb[, c('Pmaquinabase', 'Prima', 'CustoProduto', 'Resposta')]
+aux_test <- data_testb[, c('Pmaquinabase', 'Prima', 'CustoProduto', 'Resposta')]
+trainbmatrix <- xgb_data(aux_train)
+testebmatrix <- xgb_data(aux_test)
+
+
+
+m1 <- xgboost(data = trainbmatrix, nrounds = 50, weight = data_trainb[, 'weights'],params = xgb_params)
+
+#m1 <- xgb.train(data = trainbmatrix, nrounds = 50,params = xgb_params)
+
+
+OOF_prediction <- data.frame(predict(m1, newdata = testebmatrix)) %>%
+  mutate(Resposta = data_test[, 'Resposta'])
+colnames(OOF_prediction) <- c('preds', 'Resposta')
+
+confusionMatrix(factor(OOF_prediction$preds),
+                factor(as.integer(OOF_prediction$Resposta)-1),
+                mode = "everything")
+```
+
+```{r}
+OOF_prediction <- data.frame(predict(m1, newdata = trainbmatrix)) %>%
+  mutate(Resposta = data_train[, 'Resposta'])
+colnames(OOF_prediction) <- c('preds', 'Resposta')
+
+confusionMatrix(factor(OOF_prediction$preds),
+                factor(as.integer(OOF_prediction$Resposta)-1),
+                mode = "everything")
+
 ```
 
 ```{r}
 names(cv_model)
 cv_model$params
-
 OOF_prediction <- data.frame(cv_model$pred) %>%
   mutate(max_prob = max.col(., ties.method = "last"),
          label =  as.integer(data_train[,'Resposta']))
 head(OOF_prediction)
+
 ```
 
 ```{r}
@@ -762,7 +839,7 @@ confusionMatrix(factor(OOF_prediction$max_prob),
                 mode = "everything")
 ```
 
-```{r}
+```{r, warning=FALSE}
 bst_model <- xgb.train(params = cv_model$params,
                        data = train_matrix,
                        nrounds = nround)
@@ -784,7 +861,7 @@ confusionMatrix(factor(test_prediction$max_prob),
 
 ```{r}
 # get the feature real names
-names <-  colnames(data_train[,-1])
+names <-  colnames(data_train)
 # compute feature importance matrix
 importance_matrix = xgb.importance(feature_names = names, model = bst_model)
 head(importance_matrix)
@@ -799,11 +876,81 @@ print(gp)
 
 ```
 
+```{r, warning=FALSE, message=FALSE}
+#install.packages('mlr')
+library(mlr)
+#convert characters to factors
+fact_col <- colnames(data_train)[sapply(data_train,is.character)]
+
+#for(i in fact_col) set(train,j=i,value = factor(train[[i]]))
+#for (i in fact_col) set(test,j=i,value = factor(test[[i]]))
+
+#create tasks
+
+data_train2 <- data_train[, c('Pmaquinabase', 'CustoProduto', 'Prima', 'Resposta')]
+data_test2 <- data_test[, c('Pmaquinabase', 'CustoProduto', 'Prima', 'Resposta')]
+
+
+traintask <- makeClassifTask (data = data_train2,target = "Resposta")
+testtask <- makeClassifTask (data = data_test2,target = "Resposta")
+
+#do one hot encoding`<br/> 
+#traintask <- createDummyFeatures (obj = traintask) 
+#testtask <- createDummyFeatures (obj = testtask)
+```
+
+```{r}
+#create learner
+lrn <- makeLearner("classif.xgboost",predict.type = "response", weights = T)
+lrn$par.vals <- list( objective="multi:softprob", eval_metric="merror", nrounds=100L, eta=0.1)
+
+?makeLearner
+
+#getLearnerProperties(lrn)
+#lrn$weights <- data_trainb[, 'weights']
+
+
+#set parameter space
+params <- makeParamSet( makeDiscreteParam("booster",values = c("gbtree","gblinear")), makeIntegerParam("max_depth",lower = 3L,upper = 10L), makeNumericParam("min_child_weight",lower = 1L,upper = 10L), makeNumericParam("subsample",lower = 0.5,upper = 1), makeNumericParam("colsample_bytree",lower = 0.5,upper = 1))
+
+#set resampling strategy
+rdesc <- makeResampleDesc("CV",stratify = T,iters=5L)
+```
+
+```{r, warning=FALSE, message=FALSE}
+library(parallel)
+library(parallelMap) 
+parallelStartSocket(cpus = detectCores())
+
+
+ctrl <- makeTuneControlRandom(maxit = 10L)
+
+#parameter tuning
+mytune <- tuneParams(learner = lrn, task = traintask, resampling = rdesc, measures = acc, par.set = params, control = ctrl, show.info = T)
+```
+
+```{r}
+#set hyperparameters
+lrn_tune <- setHyperPars(lrn,par.vals = mytune$x)
+
+#train model
+xgmodel <- train(learner = lrn_tune,task = traintask)
+
+#predict model
+xgpred <- predict(xgmodel,testtask)
+names(xgmodel)
+xgmodel$features
+
+confusionMatrix(xgpred$data$response,xgpred$data$truth)
+```
+
 ### Neuranet
 
 ```{r, message=FALSE, warning=FALSE}
 #install.packages('neuralnet')
 library(neuralnet)
+
+?neuralnet
 ```
 
 ```{r}
@@ -811,7 +958,7 @@ data_train_nn <- data_train %>% mutate_at(vars(Regiao), as.integer)
 data_test_nn <- data_test %>% mutate_at(vars(Regiao), as.integer)
 
 nn=neuralnet(Resposta ~Prima + CustoProduto + Pmaquinabase + Regiao,  
-             data=data_nn, hidden=c(1,2,3,4,5,5,4,3,2,1), linear.output = FALSE)
+             data=data_train_nn, hidden=c(1,2,3,4,5,5,4,3,2,1), linear.output = FALSE)
 ```
 
 ```{r}
@@ -903,12 +1050,39 @@ svm_final <-svm.tune$finalModel
 pred <- predict(svm.tune, data_test, type = "prob") 
 ```
 
+### One vs All
+
+```{python}
+#Import LogisticRegression() model from scikit_learn
+from sklearn.datasets import make_classification
+from sklearn.linear_model import LogisticRegression#define dataset
+import pandas as pd
+ 
+df = pd.read_csv('basetreino.csv')
+df = df[df['Resposta'] != 0]
+x_train = df.loc[:,['Pmaquinabase', 'Prima', 'CustoProduto']]
+y_train = df.loc[:, 'Resposta']
+
+df_teste = pd.read_csv('baseteste.csv')
+df_teste = df_teste[df_teste['Resposta'] != 0]
+x_test = df_teste.loc[:,['Pmaquinabase', 'Prima', 'CustoProduto']]
+y_test = df_teste.loc[:, 'Resposta']
+
+Multiclass_model = LogisticRegression(multi_class='multinomial')#fit model
+Multiclass_model.fit(x_train, y_train)#make final predictions
+y_pred = Multiclass_model.predict(x_test)
+
+y_pred.shape
+```
+
 ## Bibliografia
 
-https://amunategui.github.io/multinomial-neuralnetworks-walkthrough/index.html
+**Predicting Multiple Discrete Values with Multinomials, Neural Networkds and the {nnet} Package**. AMUNATEGI, Manueal. Disponível em: https://amunategui.github.io/multinomial-neuralnetworks-walkthrough/index.html
 
 https://stats.oarc.ucla.edu/r/dae/multinomial-logistic-regression/
 
 https://rpubs.com/mharris/multiclass_xgboost
 
 https://www.thearmchaircritic.org/tech-journal/build-a-multi-class-classification-neural-network-in-r-in-fifty-lines-of-code
+
+https://www.hackerearth.com/practice/machine-learning/machine-learning-algorithms/beginners-tutorial-on-xgboost-parameter-tuning-r/tutorial/
