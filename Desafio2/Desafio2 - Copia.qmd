@@ -449,32 +449,6 @@ rent
 ### Resposta vs Custo
 
 ```{r}
-
-hist_resp <- ggplot(data_train,
-       aes(Prima, Pmaquina1, colour = as.factor(Resposta) )) +
-  geom_point(stat="identity") +
-  #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
-  scale_colour_manual(guide_legend(title="Máquina Alugada"), values = c("#0072B2", "#D55E00", "#009E73")) + 
-  #scale_x_discrete(guide = guide_axis(n.dodge=3))+
-  labs(y = 'Preço da Máquina 1', x = 'Custo de Matéria Prima', title = "Distribuição de Resposta")
-
-hist_resp
-
-# hist_resp <- ggplot(data_train,
-#        aes(Prima, Pmaquina1, colour = as.factor(Resposta) )) +
-#   geom_point(stat="identity") +
-#   #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
-#   scale_fill_manual(guide_legend(title="Aluguel de Máquinas"), values = c("#D95F02", "#1B9E77", "blue")) + 
-#   #scale_x_discrete(guide = guide_axis(n.dodge=3))+
-#   labs(x = 'Aluguel de Máquinas', y = 'Frequência Absoluta', title = "Distribuição de Resposta")
-
-
-hist_resp
-
-
-```
-
-```{r}
 hist_resp <- ggplot(data_train,
        aes(CustoProduto, Prima, colour = as.factor(Resposta) )) +
   geom_point(stat="identity") +
@@ -491,6 +465,41 @@ hist_resp
 ```
 
 ## 
+
+### Visualizações 3D
+
+```{r}
+install.packages('rgl')
+library(rgl)
+
+data_plot <- data_train %>% 
+  mutate_at(vars(Prima, CustoProduto), as.double)
+mycolors <- c('royalblue1', 'darkcyan', 'red')
+data_plot$color <- mycolors[ as.numeric(data_plot$Resposta) ]
+
+# Plot
+plot3d( 
+  x=data_plot$CustoProduto, y=data_plot$Prima, z=data_plot$Pmaquinabase, 
+  col = data_plot$color, 
+  type = 'p', 
+  radius = 10,
+  size = 10,
+  xlab="CustoProduto", ylab="Prima", zlab="Pmaquinabase", decorate = T)
+
+plot
+
+
+```
+
+```{r}
+library("RColorBrewer")
+cols <- get_colors(data_plot$Resposta, brewer.pal(n=3, name="Dark2") )
+rgl_init()
+rgl.spheres(x=data_plot$CustoProduto, y=data_plot$Prima, z=data_plot$Pmaquinabase, r = 0.2, color = "blue") 
+rgl_add_axes(x, y, z, show.bbox = TRUE)
+
+?rgl_init
+```
 
 ## Ajuste de Modelos
 
@@ -722,6 +731,7 @@ library(gamlss)
 
 f <- list(
   Resposta ~ Pmaquinabase + Prima + Pmaquina1,
+  Resposta ~ Pmaquinabase + Prima + Pmaquina1,
   Resposta ~ Pmaquinabase + Prima + Pmaquina1
 )
 
@@ -732,8 +742,11 @@ colnames(train_bayes) <-  c('Pmaquinabase', 'Prima', 'Pmaquina1', 'Resposta')
 train_bayes$Resposta <- as.integer(train_bayes$Resposta)
 
 ## Estimate.
-b <- bamlss(f, family = "multinomial", data = train_bayes,reference = "X1")
+b <- bamlss(f, family = "multinomial", data = data_train,reference = "1" )
 
+
+
+df <- data.frame((sapply(data_train,c)))
 
 train_bayes$Resposta[[1]]
 
@@ -744,8 +757,6 @@ levels(data_train$Resposta)
 ### XGBoost
 
 Abaixo aplicamos um modelo de *ensemble* chamado de XGBoost. Analogamente ao RandomForest, temos a combinação de diversas árvores de decisão, porém aqui cada ajuste tem acesso aos resíduos do ajuste anterior, de forma que o modelo aprenda com as classificações errôneas.
-
-Ajustamos o XGBoost sem a variável *Região,* pois o método não permite a adição de variável categóricas
 
 ```{r, warning=FALSE, message=FALSE}
 #install.packages("xgboost")
@@ -782,6 +793,8 @@ test_matrix <- xgb_data(data_test)
 
 ```
 
+Usamos também validação cruzada no conjunto de dados de treino para ajustar diversos modelos e selecionar os melhores hiperparâmetros.
+
 ```{r}
 
 numberOfClasses <- length(unique(data_train$Resposta))
@@ -807,20 +820,22 @@ cv_model <- xgb.cv(params = xgb_params,
 ```
 
 ```{r}
-names(cv_model)
-cv_model$params
 OOF_prediction <- data.frame(cv_model$pred) %>%
   mutate(max_prob = max.col(., ties.method = "last"),
          label =  as.integer(data_train[,'Resposta']))
-head(OOF_prediction)
+#head(OOF_prediction)
 
 ```
+
+Temos uma acurácia de 0.52 no conjunto de teste para o melhor modelo ajustado. Vemos o desempenho no conjunto de teste.
 
 ```{r}
 confusionMatrix(factor(OOF_prediction$max_prob),
                 factor(OOF_prediction$label),
                 mode = "everything")
 ```
+
+Continuamos com o mesmo valor de 0.52 de acurácia no conjunto de teste.
 
 ```{r, warning=FALSE}
 bst_model <- xgb.train(params = cv_model$params,
@@ -840,21 +855,10 @@ confusionMatrix(factor(test_prediction$max_prob),
                 factor(test_prediction$label),
                 mode = "everything")
 
-```
 
-```{r}
-# get the feature real names
-names <-  colnames(data_train[, c('Prima', 'CustoProduto', 'Pmaquinabase', 'Regiao') ])
-# compute feature importance matrix
-importance_matrix = xgb.importance(feature_names = names, model = bst_model)
-head(importance_matrix)
-```
-
-```{r}
-# plot
-#install.packages('Ckmeans.1d.dp')
-gp = xgb.ggplot.importance(importance_matrix)
-print(gp) 
+xgboost <- confusionMatrix(factor(test_prediction$max_prob),
+                factor(test_prediction$label),
+                mode = "everything")$overall[[1]]
 
 
 ```
@@ -865,12 +869,11 @@ print(gp)
 
 ```{r}
 
--> Prima + Pmaquinabase
 library(e1071) 
 #install.packages('e1071')
-svm1 <- svm(Resposta~  Prima + Pmaquinabase, data=data_train, 
-          method="C-classification", kernel="radial", 
-          gamma=0.1, cost=10, scale = T)
+svm1 <- svm(Resposta~  Prima + Pmaquinabase, data=data_train 
+          , kernel="radial",
+          gamma=5, cost=10, scale = F, type = 'nu-classification')
 summary(svm1)
 svm1$SV 
 
@@ -888,6 +891,13 @@ xtab
 ```
 
 ```{r}
+tune_out <- tune.svm(x = data_train[, c('Pmaquinabase', 'CustoProduto', 'Prima')], y = data_train[, 'Resposta'],  type = "C-classification", kernel = 'polynomial', degree = c(1,2,3,4), coef0 = c(1,2),
+                     cost = c(.01), gamma = c(0.1), scale = FALSE)
+
+?tune.svm
+```
+
+```{r}
 
 #install.packages('MLmetrics')
 library(MLmetrics)
@@ -897,18 +907,18 @@ ctrl <- trainControl(method="repeatedcv",   # 10fold cross validation
                      summaryFunction=multiClassSummary,   # Use AUC to pick the best model
                      classProbs=FALSE)
 
+set.seed(42)
 #Train and Tune the SVM
 svm.tune <- train(x=data_train[, c('Pmaquinabase', 'Prima', 'CustoProduto')],
                   y= make.names(data_train[,'Resposta']),
-                  method = "dwdRadial",   # Radial kernel
-                  tuneLength = 5, 
-                  preProcess = c('BoxCox'),
+                  method = "svmPoly",   # Radial kernel
+                  tuneLength = 4, 
+                  preProcess = c('center','scale'),
                    # Center and scale data
                   metric="Accuracy",
                   trControl=ctrl)
-install.packages('adaboost')
 
-?train
+
 ```
 
 ```{r}
