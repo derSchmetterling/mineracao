@@ -727,31 +727,69 @@ Vemos que com a retirada de *Regiao*, a acurácia do modelo sofre um decréscimo
 ## Model formula, each category may
 ## have different model terms.
 
-library(gamlss)
+library(bamlss)
 
+
+## Rename levels.
+levels(data_train$Resposta) <- paste0("L", levels(data_train$Resposta))
+levels(data_test$Resposta) <- paste0("L", levels(data_test$Resposta))
+
+## Response only in 1st formula.
 f <- list(
-  Resposta ~ Pmaquinabase + Prima + Pmaquina1,
-  Resposta ~ Pmaquinabase + Prima + Pmaquina1,
-  Resposta ~ Pmaquinabase + Prima + Pmaquina1
+  Resposta ~ Pmaquinabase + Prima + CustoProduto + Regiao,
+           ~ Pmaquinabase + Prima + CustoProduto + Regiao
 )
 
-
-train_bayes <- data.frame(scale(data_train[, c('Pmaquinabase', 'Prima', 'Pmaquina1', 'Pmaquina2')]))
-train_bayes <- cbind(train_bayes,make.names(data_train$Resposta))
-colnames(train_bayes) <-  c('Pmaquinabase', 'Prima', 'Pmaquina1', 'Resposta')
-train_bayes$Resposta <- as.integer(train_bayes$Resposta)
-
 ## Estimate.
-b <- bamlss(f, family = "multinomial", data = data_train,reference = "1" )
+b <- bamlss(f, family = "multinomial",
+  data = data_train, reference = "L1" )
 
 
 
-df <- data.frame((sapply(data_train,c)))
+```
 
-train_bayes$Resposta[[1]]
+```{r}
+summary(b)
+```
 
-scale(data.frame(data_train))
-levels(data_train$Resposta)
+```{r}
+par(mfrow = c(1, 3), mar = c(4.1, 4.1, 0.1, 1.1))
+plot(b)
+```
+
+```{r}
+## Predict for the three levels.
+p <- predict(b, newdata = data_test, type = "parameter")
+```
+
+```{r}
+probs <- list()
+for(j in names(p))
+  probs[[j]] <- p[[j]] / (1 + rowSums(do.call("cbind", p)))
+probs <- as.data.frame(probs)
+probs[["L1"]] <- 1 - rowSums(probs)
+
+probs <- probs[, c('L1', 'L2', 'L3')]
+
+```
+
+```{r}
+probs1 <- probs %>% 
+          mutate(max_prob = max.col(., ties.method = "last"),
+          label =  as.integer(data_test[,'Resposta']))
+```
+
+```{r}
+confusionMatrix(factor(probs1$max_prob),
+                factor(probs1$label),
+                mode = "everything")
+```
+
+```{r}
+par(mar = c(4.1, 4.1, 1.1, 1.1))
+plot2d(probs ~ Pmaquinabase + CustoProduto, data = data_test, col.lines = rainbow_hcl(4),
+  lwd = 2, scheme = 1, ylab = "Fitted probabilities", ylim = c(0, 1))
+legend("center", names(probs), lty = 1, lwd = 2, col = rainbow_hcl(4))
 ```
 
 ### XGBoost
