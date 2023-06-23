@@ -23,7 +23,14 @@ knitr::opts_chunk$set(echo = TRUE)
 # Bibliotecas
 
 ```{r bibliotecas, warning=FALSE, message=FALSE}
+#install.packages('UBL')
+#install.packages("xgboost")
+#install.packages('rgl')
 
+library(randomForest)
+library(rgl)
+library("xgboost")
+library(UBL)
 library(lares)
 library(ggplot2)
 library(dplyr)
@@ -33,6 +40,7 @@ library(gamlss)
 library(nnet)
 library(caret)
 library(bamlss)
+library(e1071)
 ```
 
 # Amostragem e divisão treino e teste
@@ -141,11 +149,19 @@ library(VIM)
 aggr(data_test, col = c('green','red'), numbers = TRUE, sortVars = TRUE, 
      labels = names(data_train), cex.axis = .5, gap = 2, 
      ylab = c("Proportion in variable","Proportion in dataset"))
+
+aggr(data_train, col = c('green','red'), numbers = TRUE, sortVars = TRUE, 
+     labels = names(data_train), cex.axis = .5, gap = 2, 
+     ylab = c("Proportion in variable","Proportion in dataset"))
 ```
 
 ## Custos e Preços
 
 Analisando rapidamente a média e a mediana dos preços, notamos que preços são próximos entre todas as máquinas, temos aproximadamente uma diferença de 50 a 100 u.m entre as possíveis escolhas. Assim, prosseguindo a análise, aplicamos o teste de Kruskal-Wallis para verificar se as distribuições de preço provém da mesma distribuição.
+
+```{r, warning=FALSE}
+summary(data_train[, c('Pmaquina1', 'Pmaquina2', 'Pmaquina3' )])
+```
 
 $$
 H_0: \text{Os preços das máquinas provém da mesma distribuição}
@@ -154,10 +170,6 @@ $$
 $$
 H_1: \text{Os preços das máquinas não provém da mesma distribuição}
 $$
-
-```{r, warning=FALSE}
-summary(data_train[, c('Pmaquina1', 'Pmaquina2', 'Pmaquina3' )])
-```
 
 Assumindo um nível de significância de 5%, não rejeitamos a hipótese nula de que as distribuições são semelhantes.
 
@@ -305,19 +317,7 @@ col_names = ['Prima', 'Pmaquina2', 'Pmaquina3']
 df_reduced = pd.DataFrame(X_selected, columns = col_names )
 ```
 
-Vimos anteriormente também que *Pmaquina1,* Pmaquina*2*, *Pmaquina3* tem um correlação linear alta de acima de 0.9, então usaremos arbitrariamente apenas *Pmaquina1*, terminando com o seguinte conjunto de dados:
-
-```{r}
-# df_reg <- data_train %>% 
-#   dplyr::select(c('Resposta', 'Pmaquina1', 'Prima'))
-# 
-# df_test <- data_test %>% 
-#   dplyr::select(c('Resposta', 'Pmaquina1', 'Prima'))
-# 
-# 
-# head(df_reg)
-
-```
+Vimos anteriormente também que *Pmaquina1,* Pmaquina*2*, *Pmaquina3* tem um correlação linear alta de acima de 0.9, então usaremos arbitrariamente apenas *Pmaquina1.*
 
 ### Clusterização
 
@@ -413,7 +413,7 @@ Ao plotar o custo de matéria prima e o preço da máquina 3 e analisando os agr
 
 ## Distribuição da Variável Resposta
 
-Analisando a variável relativa ao aluguel de máquinas pelos agricultores, vemos que a grande maioria deles não alugou nenhuma.
+Analisando a variável relativa ao aluguel de máquinas pelos agricultores, vemos um certo desbalanceamento entre as diferentes máquinas, sendo a 2 a mais recorrente no conjunto de dados.
 
 ```{r}
 hist_resp <- ggplot(data_train %>% count(Resposta) %>%    
@@ -427,7 +427,7 @@ hist_resp <- ggplot(data_train %>% count(Resposta) %>%
 hist_resp
 ```
 
-No total 144 indivíduos alugaram alguma das máquinas, sendo a máquina 2 a mais frequente.
+Abaixo apresentamos o número de máquinas alugadas na base de treino:
 
 ```{r}
 #n_diff_zero <- nrow(filter(data_train, Resposta != 0))
@@ -446,7 +446,9 @@ rent <-  data.frame(Alugadas = c(nrow(data_train),n_a1, n_a2, n_a3),
 rent
 ```
 
-### Resposta vs Custo
+### Resposta vs Matéria Prima
+
+De forma geral, o preço da máquina 1 e o da matéria prima não geram regiões de separação clara entre os tipos de máquinas alugadas. Assim, provavelmente um modelo apenas com essas duas variáveis não seja capaz de performar bem.
 
 ```{r}
 hist_resp <- ggplot(data_train,
@@ -460,8 +462,18 @@ hist_resp <- ggplot(data_train,
 hist_resp
 ```
 
+Ao comparar *CustoProduto* com *Pmaquinabase,* também não notamos divisões claras entre os tipos de máquina.
+
 ```{r}
-#knitr::knit_exit()
+hist_resp <- ggplot(data_train,
+       aes(CustoProduto, Pmaquinabase, colour = as.factor(Resposta) )) +
+  geom_point(stat="identity") +
+  #geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
+  scale_colour_manual(guide_legend(title="Máquina Alugada"), values = c("#0072B2", "#D55E00", "#009E73")) + 
+  #scale_x_discrete(guide = guide_axis(n.dodge=3))+
+  labs(y = 'Preço da Máquina 1', x = 'Custo de Matéria Prima', title = "Distribuição de Resposta")
+
+hist_resp
 ```
 
 ## 
@@ -469,8 +481,7 @@ hist_resp
 ### Visualizações 3D
 
 ```{r}
-install.packages('rgl')
-library(rgl)
+
 
 data_plot <- data_train %>% 
   mutate_at(vars(Prima, CustoProduto), as.double)
@@ -581,7 +592,7 @@ cvDivider <- floor(nrow(data_train) / (cv+1))
 for (cv in seq(1:cv)) {
   # assign chunk to data test
   dataTestIndex <- c((cv * cvDivider):(cv * cvDivider + cvDivider))
-  dataTest <- data_test[dataTestIndex,]
+  dataTest <- complete_data[dataTestIndex,]
 
   # everything else to train
   dataTrain <- complete_data[-dataTestIndex,]
@@ -607,7 +618,7 @@ multinom_cv <- mean(totalAccuracy)
 Em seguida ajustamos um modelo RandomForest. Começamos ajustando os hiperparâmetros referente ao modelo e realizando um procedimento de validação cruzada no conjunto de treino. Usamos o mesmo conjunto de covariáveis selecionado no modelo multinomial (*Prima, CustoProduto, Pmaquinabase e Regiao*)
 
 ```{r, warning=FALSE, message=FALSE}
-library(randomForest)
+
 
 set.seed(10727865)
 repeat_cv <- trainControl(method="cv", number=10, repeats=3, search="random")
@@ -639,8 +650,6 @@ forest <- caret::train(
 ## Print out the details about the model
 rf_model <- forest$finalModel
 rf_model
-names(rf_model)
-forest$coefnames
 ```
 
 Abaixo apresentamos a acurácia no conjunto de teste.
@@ -723,16 +732,24 @@ Vemos que com a retirada de *Regiao*, a acurácia do modelo sofre um decréscimo
 
 ### Modelo Multinomial Bayesiano
 
-```{r}
-## Model formula, each category may
-## have different model terms.
+Em seguida, implementar a abordagam bayesiana para o modelo multinomial.
 
-library(bamlss)
+```{r}
+
 
 
 ## Rename levels.
-levels(data_train$Resposta) <- paste0("L", levels(data_train$Resposta))
-levels(data_test$Resposta) <- paste0("L", levels(data_test$Resposta))
+
+data_trainb <- data_train 
+levels(data_trainb$Resposta) <- paste0("L", levels(data_train$Resposta))
+data_testb <- data_test
+levels(data_testb$Resposta) <- paste0("L", levels(data_test$Resposta))
+
+complete_datab <- complete_data
+levels(complete_datab$Resposta) <- paste0("L", levels(complete_datab$Resposta))
+
+
+
 
 ## Response only in 1st formula.
 f <- list(
@@ -742,10 +759,10 @@ f <- list(
 
 ## Estimate.
 b <- bamlss(f, family = "multinomial",
-  data = data_train, reference = "L1" )
+  data = data_trainb, reference = "L1" )
 
 
-
+complete_datab
 ```
 
 ```{r}
@@ -753,13 +770,8 @@ summary(b)
 ```
 
 ```{r}
-par(mfrow = c(1, 3), mar = c(4.1, 4.1, 0.1, 1.1))
-plot(b)
-```
-
-```{r}
 ## Predict for the three levels.
-p <- predict(b, newdata = data_test, type = "parameter")
+p <- predict(b, newdata = data_testb, type = "parameter")
 ```
 
 ```{r}
@@ -779,6 +791,8 @@ probs1 <- probs %>%
           label =  as.integer(data_test[,'Resposta']))
 ```
 
+Sem o procedimento de validação cruzada, obtivemos 0.575 de acurácia.
+
 ```{r}
 confusionMatrix(factor(probs1$max_prob),
                 factor(probs1$label),
@@ -786,10 +800,45 @@ confusionMatrix(factor(probs1$max_prob),
 ```
 
 ```{r}
-par(mar = c(4.1, 4.1, 1.1, 1.1))
-plot2d(probs ~ Pmaquinabase + CustoProduto, data = data_test, col.lines = rainbow_hcl(4),
-  lwd = 2, scheme = 1, ylab = "Fitted probabilities", ylim = c(0, 1))
-legend("center", names(probs), lty = 1, lwd = 2, col = rainbow_hcl(4))
+totalAccuracy <- c()
+cv <- 10
+#cv <- 224
+cvDivider <- floor(nrow(data_train) / (cv+1))
+#cvDivider <- 50
+
+for (cv in seq(1:cv)) {
+  # assign chunk to data test
+  dataTestIndex <- c((cv * cvDivider):(cv * cvDivider + cvDivider))
+  dataTest <- complete_datab[dataTestIndex,]
+
+  # everything else to train
+  dataTrain <- complete_datab[-dataTestIndex,]
+
+ b <- bamlss(f, family = "multinomial",
+  data = dataTrain, reference = "L1" )
+ 
+ p <- predict(b, newdata = dataTest, type = "parameter")
+ 
+   probs <- list()
+  for(j in names(p))
+    probs[[j]] <- p[[j]] / (1 + rowSums(do.call("cbind", p)))
+  probs <- as.data.frame(probs)
+  probs[["L1"]] <- 1 - rowSums(probs)
+  
+  probs <- probs[, c('L1', 'L2', 'L3')]
+  
+  probs1 <- probs %>% 
+          mutate(max_prob = max.col(., ties.method = "last"),
+          label =  as.integer(dataTest[,'Resposta']))
+  
+  probs1$max_prob<- as.factor(paste0("L", probs1$max_prob))
+ 
+
+  #  classification error
+  cv_ac <- postResample(dataTest$Resposta, probs1$max_prob)[[1]]
+  print(paste('Current Accuracy:',cv_ac,'for CV:',cv))
+  totalAccuracy <- c(totalAccuracy, cv_ac)
+}
 ```
 
 ### XGBoost
@@ -797,8 +846,7 @@ legend("center", names(probs), lty = 1, lwd = 2, col = rainbow_hcl(4))
 Abaixo aplicamos um modelo de *ensemble* chamado de XGBoost. Analogamente ao RandomForest, temos a combinação de diversas árvores de decisão, porém aqui cada ajuste tem acesso aos resíduos do ajuste anterior, de forma que o modelo aprenda com as classificações errôneas.
 
 ```{r, warning=FALSE, message=FALSE}
-#install.packages("xgboost")
-library("xgboost")
+
 
 
 
@@ -907,7 +955,7 @@ xgboost <- confusionMatrix(factor(test_prediction$max_prob),
 
 ```{r}
 
-library(e1071) 
+ 
 #install.packages('e1071')
 svm1 <- svm(Resposta~  Prima + Pmaquinabase, data=data_train 
           , kernel="radial",
@@ -968,8 +1016,7 @@ pred <- predict(svm.tune, data_test, type = "prob")
 Nessa seção, aplicamos o algoritmo SMOTE para gerar dados simulados para as máquinas 1 e 3, já que são menos frequentes no conjunto de dados original.
 
 ```{r}
-library(UBL)
-#install.packages('UBL')
+
 over_train <- SmoteClassif(Resposta ~ Prima + CustoProduto+ Pmaquinabase, data_train, k = 5, C.perc = list('1' = 1.75,'3' =1.75), repl = FALSE,
 dist = "HEOM", p = 2)
 
