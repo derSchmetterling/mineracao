@@ -69,6 +69,7 @@ library(coda)
 library(formattable)
 library(randomForest)
 library(lattice)
+library(caret)
 
 ```
 
@@ -114,7 +115,7 @@ Essa seção faz a amostragem dos conjunto de dados e salva os arquivos resultan
 
 Uma das modalidades de seguro de veículos é conhecida como cobertura completa e pode ser acionada para cubrir os custos de danos ao automóvel por qualquer tipo de acidente, colisão, furto, vandalismos, enchentes ou impacto causado por um objeto inanimado.
 
-Baseado em um lista de quatro características desejamos predizer a probabilidade de um indíviduo adquirir a cobertura completa e assim poder guiar o processo de escolha de potenciais clientes O conjunto de dados é formado por 2000 observações com as seguintes covariáveis:
+**Baseado em um lista de quatro características desejamos predizer a probabilidade de um indíviduo adquirir a cobertura completa** e assim poder guiar o processo de escolha de potenciais clientes O conjunto de dados é formado por 2000 observações com as seguintes covariáveis:
 
 -   **AGE** - variável inteira, idade em anos dos indivíduos
 
@@ -630,7 +631,7 @@ accuracy <- function(model, model_roc, test_df) {
   
   acc <- mean(predict_test == test_df$y)
   
-  return(c(acc,precision, recall,f1_score))
+  return(c(acc,precision, recall,f1_score, thresh))
   
 }
 ```
@@ -645,6 +646,9 @@ logitr_acc_test <- logitr_res_test[1]
 logitr_f1_test<-  logitr_res_test[4]
 logitr_precision_test <- logitr_res_test[2]
 logitr_recall_test <- logitr_res_test[3]
+logitr_thresh <- logitr_res_test[5]
+
+
 ```
 
 ```{r}
@@ -657,6 +661,7 @@ loglog_acc_test <- loglog_res_test[1]
 loglog_f1_test<-  loglog_res_test[4]
 loglog_precision_test <- loglog_res_test[2]
 loglog_recall_test <- loglog_res_test[3]
+loglog_thresh <- loglog_res_test[5]
 ```
 
 # Random Forest
@@ -818,9 +823,9 @@ res_vec <- as.vector(res)
 pstar <- 1/pi* atan(-res_vec) + 0.5
 p <- 1- pstar^lambda
 
-predictions <- rbinom(n, 1, p)
-
-return(predictions)
+#predictions <- rbinom(n, 1, p)
+#predictions <- ifelse(p> loglog_thresh, '1', '0')
+return(p)
 }
 
 
@@ -839,6 +844,7 @@ accuracy_bayes <- function(model_roc, test_df, predict) {
   
   thresh <- as.double(rownames(model_roc$res[thresh_index,][1]))
   
+  predict <- ifelse(predict > thresh, '1', '0')
   
   acc <- mean(predict == test_df$y)
   
@@ -862,6 +868,100 @@ acc_bayes <- metrics_bayes[1]
 prec_bayes <- metrics_bayes[2]
 recall_bayes<-metrics_bayes[3]
 f1_bayes <- metrics_bayes[4]
+
+
+```
+
+## XGBoost
+
+```{r}
+
+library("xgboost")
+
+
+
+
+xgb_data <- function(data){
+  
+
+   
+  data<- data %>%
+    dplyr::select(c('MEN', 'URBAN', 'AGE', 'SENIORITY', 'y')) %>% 
+    mutate_at(vars(y), as.character) %>% 
+    mutate_at(vars(MEN, URBAN,y), as.integer) 
+   
+  data_variables <- as.matrix(data[!(names(data) %in% 'y')])
+  data_label <- as.integer(data[,'y'])
+  
+  
+  matrix_xgb <- xgb.DMatrix(data = data_variables, label = data_label)
+  
+  
+  return(matrix_xgb)
+  
+}
+
+
+    
+
+train_matrix <- xgb_data(data_reg)
+test_matrix <- xgb_data(data_test)
+
+```
+
+```{r}
+
+negative_cases <- sum(data_reg$y == '0')
+postive_cases <- sum(data_reg$y == '1')
+
+model <- xgboost(data = train_matrix,                    # the data   
+                 max.depth=50,                           # max depth 
+                 nrounds=50,
+                 objective = 'binary:logistic',
+                 'eval_metric' = 'error',
+                 scale_pos_weight = negative_cases/postive_cases,
+                 gamma = 1) 
+
+pred <- predict(model, test_matrix)
+
+
+roc_bayes <- Epi::ROC(pred, data_test$y, plot = 'ROC')
+thresh_index <- which.max(rowSums(roc_bayes$res[, c("sens", "spec")]))
+pred_class <- ifelse(pred >= 0.465176105499268     , '1', '0')
+
+
+
+confusionMatrix(factor(pred_class),
+                factor(data_test$y),
+                mode = "everything")
+```
+
+```{negative_cases <- sum(data_reg$y == '0')}
+postive_cases <- sum(data_reg$y == '1')
+
+model <- xgboost(data = train_matrix,                    # the data   
+                 max.depth=3,                           # max depth 
+                 nrounds=50,
+                 objective = 'binary:logistic',
+                 'eval_metric' = 'error') 
+
+pred <- predict(model, test_matrix)
+
+?xgboost
+
+
+roc_bayes <- Epi::ROC(pred, data_test$y, plot = 'ROC')
+thresh_index <- which.max(rowSums(roc_bayes$res[, c("sens", "spec")]))
+pred_class <- ifelse(pred >= 0.268926292657852    , '1', '0')
+
+
+
+confusionMatrix(factor(pred_class),
+                factor(data_test$y),
+                mode = "everything")
+```
+
+```{r}
 
 
 ```
