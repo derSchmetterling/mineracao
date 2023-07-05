@@ -770,7 +770,11 @@ writeLines(modelString, con='models/m1_cauchit.bug')
 ```
 
 ```{r}
-
+#data_bayes <- data %>% 
+#  mutate_at(vars('y', 'MEN', 'URBAN'), as.character) %>% 
+#  mutate_at(vars('y', 'MEN', 'URBAN'), as.integer)
+data_scaled = data
+#data = over_train
 data_scaled = data
 data_scaled$AGE <- as.numeric(scale(data$AGE))
 data_scaled$SENIORITY <- as.numeric(scale(data$SENIORITY))
@@ -872,7 +876,7 @@ f1_bayes <- metrics_bayes[4]
 
 ```
 
-## XGBoost
+# XGBoost
 
 ```{r}
 
@@ -947,8 +951,6 @@ model <- xgboost(data = train_matrix,                    # the data
 
 pred <- predict(model, test_matrix)
 
-?xgboost
-
 
 roc_bayes <- Epi::ROC(pred, data_test$y, plot = 'ROC')
 thresh_index <- which.max(rowSums(roc_bayes$res[, c("sens", "spec")]))
@@ -961,9 +963,76 @@ confusionMatrix(factor(pred_class),
                 mode = "everything")
 ```
 
+# Métodos de Reamostragem
+
+Para lidar com o desbalanceamento entre as classes da variável resposta, aplicaremos o método SMOTE na base de dados de treino.
+
 ```{r}
+data_reg
+```
+
+```{r}
+library(UBL)
+
+over_train <- SmoteClassif(y ~ MEN + URBAN+ AGE + SENIORITY, data_reg, k = 5, C.perc = list('1' = 1.75,'0' =1), repl = FALSE,
+dist = "HEOM", p = 2)
 
 
+```
+
+```{r}
+hist_men <- ggplot(over_train %>% count(y, MEN) %>%    
+         mutate(pct=n/sum(n)),
+       aes(as.factor(y), n, fill=as.factor(MEN))) +
+  geom_bar(stat="identity") +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%")), position=position_stack(vjust=0.5)) +
+scale_fill_manual(guide_legend(title="Sexo"), values = c("#D95F02", "#1B9E77"),labels = c("Feminino","Masculino")) + 
+  labs(x = 'Seguro', y = 'Frequência Absoluta', title = "Distribuição do seguro")
+
+
+hist_men
+```
+
+### Loglog
+
+```{r}
+over_loglog <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
+ family = binomial(link = loglog()), data = over_train)
+summary(over_loglog)
+```
+
+```{r}
+y_pred <- predict(over_loglog,newdata = data_test, type = 'response')
+roc_logit <- Epi::ROC(y_pred, data_test$y, plot= T)
+
+logitr_res_test <- accuracy(over_loglog, roc_logit, data_test )
+logitr_acc_test <- logitr_res_test[1]
+logitr_f1_test<-  logitr_res_test[4]
+logitr_precision_test <- logitr_res_test[2]
+logitr_recall_test <- logitr_res_test[3]
+logitr_thresh <- logitr_res_test[5]
+```
+
+### Random Forest
+
+```{r}
+rf <- randomForest(y~., data=over_train, proximity=TRUE, mtry = 2) 
+print(rf)
+```
+
+```{r}
+p2 <- predict(rf, data_test)
+cf_test <- caret::confusionMatrix(p2, data_test$y)
+cf_test
+acc_rf <- cf_test$overall[1]
+
+
+#f1 score
+#recall or sensitity/ recall or PPV
+recall_forest <- as.double(cf_test$byClass[1])
+precision_forest <- as.double(cf_test$byClass[3])
+
+f1_forest <- 2*(recall_forest*precision_forest)/(precision_forest+recall_forest)
 ```
 
 # Predição no conjunto de teste
