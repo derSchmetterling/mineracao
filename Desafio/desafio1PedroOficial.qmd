@@ -770,34 +770,34 @@ writeLines(modelString, con='models/m1_cauchit.bug')
 ```
 
 ```{r}
-#data_bayes <- data %>% 
-#  mutate_at(vars('y', 'MEN', 'URBAN'), as.character) %>% 
+# data_bayes <- data_test %>%
+#  mutate_at(vars('y', 'MEN', 'URBAN'), as.character) %>%
 #  mutate_at(vars('y', 'MEN', 'URBAN'), as.integer)
-data_scaled = data
+#data_scaled = data
 #data = over_train
 data_scaled = data
-data_scaled$AGE <- as.numeric(scale(data$AGE))
-data_scaled$SENIORITY <- as.numeric(scale(data$SENIORITY))
+data_scaled$AGE <- as.numeric(scale(data_scaled$AGE))
+data_scaled$SENIORITY <- as.numeric(scale(data_scaled$SENIORITY))
 
 N = nrow(data_scaled)
 jagsData <- list(N = N, y = data_scaled$y,
-    URBAN = data_scaled$URBAN, SEN = data_scaled$SENIORITY    ,AGE = data_scaled$AGE, MEN = data_scaled$MEN)
+    URBAN = data_scaled$URBAN, SEN = data_scaled$SENIORITY,AGE = data_scaled$AGE, MEN = data_scaled$MEN)
 ```
 
 ```{r, echo=FALSE, message=FALSE}
 #| echo: false
 m1_blogit <- jags(data=jagsData,model.file='models/m1_cauchit.bug',
                    param=c('beta0','beta_urban', 'beta_sen', 'beta_age', 'beta_men', 'lambda'),
-                   n.chains=2, n.iter=30000, n.burnin=5000, n.thin=10)
+                   n.chains=2, n.iter=10000, n.burnin=3000, n.thin=10)
 ```
 
 Analisamos os diagnósticos de convergência e não encontramos nenhum indicativo de não convergência. Apresentamos também os gráfico das posteriores dos parâmetros:
 
 ```{r}
 
-mcmc.samples <- as.mcmc(m1_blogit)
-traceplot(mcmc.samples)
-densityplot(mcmc.samples)
+samples <- as.mcmc(m1_blogit)
+traceplot(samples)
+densityplot(samples)
 
 ```
 
@@ -806,12 +806,12 @@ densityplot(mcmc.samples)
 ```{r}
 #| warning: false
 
-predict_bcauchit <- function(jagsfit.mcmc, data) {
+predict_bcauchit <- function(samples, data) {
 # data deve ser do tipo dataframe
 
 #vetor da média dos coeficientes beta_age/beta_men/beta_sen/beta_urban
-coef <- as.matrix(summary(jagsfit.mcmc)$statistics[, 'Mean'][1:5])
-lambda <- as.matrix(summary(jagsfit.mcmc)$statistics[, 'Mean'])[7]
+coef <- as.matrix(summary(samples)$statistics[, 'Mean'][1:5])
+lambda <- as.matrix(summary(samples)$statistics[, 'Mean'])[7]
 
 
 data_matrix <- data.matrix(data)[,c(-1,-4)][, c(3,1,4,2)]
@@ -856,10 +856,10 @@ accuracy_bayes <- function(model_roc, test_df, predict) {
   
 }
 
-pred_test <- predict_bcauchit(mcmc.samples,data_test)
+pred_testb <- predict_bcauchit(samples,data_test)
 
 
-roc_bayes <- Epi::ROC(pred_test, data_test$y, plot= F)
+roc_bayes <- Epi::ROC(pred_testb, data_test$y, plot= F)
 
 
 thresh_index <- which.max(rowSums(roc_bayes$res[, c("sens", "spec")]))
@@ -910,7 +910,6 @@ xgb_data <- function(data){
 
 train_matrix <- xgb_data(data_reg)
 test_matrix <- xgb_data(data_test)
-
 ```
 
 ```{r}
@@ -922,12 +921,11 @@ model <- xgboost(data = train_matrix,                    # the data
                  max.depth=50,                           # max depth 
                  nrounds=50,
                  objective = 'binary:logistic',
-                 'eval_metric' = 'error',
-                 scale_pos_weight = negative_cases/postive_cases,
-                 gamma = 1) 
+                 'eval_metric' = 'error'),
+                 scale_pos_weight = negative_cases/postive_cases) 
 
 pred <- predict(model, test_matrix)
-
+?xgboost
 
 roc_bayes <- Epi::ROC(pred, data_test$y, plot = 'ROC')
 thresh_index <- which.max(rowSums(roc_bayes$res[, c("sens", "spec")]))
@@ -940,27 +938,153 @@ confusionMatrix(factor(pred_class),
                 mode = "everything")
 ```
 
-```{negative_cases <- sum(data_reg$y == '0')}
-postive_cases <- sum(data_reg$y == '1')
+# Bayes pt2
 
-model <- xgboost(data = train_matrix,                    # the data   
-                 max.depth=3,                           # max depth 
-                 nrounds=50,
-                 objective = 'binary:logistic',
-                 'eval_metric' = 'error') 
+```{r}
+modelString="
+model{
+  for (i in 1:N) {
+    y[i] ~ dbern(p[i])
+    m[i] <- beta0+beta_urban*URBAN[i] + beta_sen*SEN[i] + beta_age*AGE[i] + beta_men*MEN[i] + beta_private*PRIVATE[i]
+    pstar[i] <- 1/3.141592* arctan(-m[i]) + 1/2
+    p[i] <- 1-pow(pstar[i], lambda)
+  
+  }
+  beta0 ~ dnorm(0,100)
+  delta ~ dunif(-2,2)
+  lambda <- exp(delta)
+  beta_urban ~ dnorm(0,100)
+  beta_sen ~ dnorm(0,100)
+  beta_age ~ dnorm(0,100)
+  beta_men ~ dnorm(0,100)
+  beta_private ~ dnorm(0,100)
+  
+  }
 
-pred <- predict(model, test_matrix)
+"
+writeLines(modelString, con='models/m1_cauchit2.bug')
+```
+
+```{r}
+data_scaled = data
+data_scaled$AGE <- as.numeric(scale(data_scaled$AGE))
+data_scaled$SENIORITY <- as.numeric(scale(data_scaled$SENIORITY))
+
+N = nrow(data_scaled)
+jagsData <- list(N = N, y = data_scaled$y,
+    URBAN = data_scaled$URBAN, SEN = data_scaled$SENIORITY,AGE = data_scaled$AGE, MEN = data_scaled$MEN, PRIVATE = data_scaled$PRIVATE)
+```
+
+```{r, echo=FALSE, message=FALSE}
+#| echo: false
+m1_blogit <- jags(data=jagsData,model.file='models/m1_cauchit2.bug',
+                   param=c('beta0','beta_urban', 'beta_sen', 'beta_age', 'beta_men', 'beta_private', 'lambda'),
+                   n.chains=2, n.iter=10000, n.burnin=3000, n.thin=10)
+```
+
+```{r}
+samples <- as.mcmc(m1_blogit)
+traceplot(samples)
+densityplot(samples)
+```
+
+```{r}
+summary(samples)$statistics[, 'Mean']
+```
+
+```{r}
+coef <- as.matrix(summary(samples)$statistics[, 'Mean'][1:6])
+lambda <- as.matrix(summary(samples)$statistics[, 'Mean'])[8]
 
 
-roc_bayes <- Epi::ROC(pred, data_test$y, plot = 'ROC')
-thresh_index <- which.max(rowSums(roc_bayes$res[, c("sens", "spec")]))
-pred_class <- ifelse(pred >= 0.268926292657852    , '1', '0')
+data_matrix <- data.matrix(data_test)[,c(-1)][, c(4,1,3,5,2)]
+data_matrix <- cbind(data_matrix, intercept = 1)
+n <- dim(data_matrix)[1]
 
 
+#coef * data
+res <- t(coef) %*% t(data_matrix)
+res_vec <- as.vector(res)
 
-confusionMatrix(factor(pred_class),
-                factor(data_test$y),
-                mode = "everything")
+
+pstar <- 1/pi* atan(-res_vec) + 0.5
+p <- 1- pstar^lambda
+```
+
+```{r}
+#| warning: false
+
+predict_bcauchit <- function(samples, data) {
+# data deve ser do tipo dataframe
+
+#vetor da média dos coeficientes beta_age/beta_men/beta_sen/beta_urban/beta_private
+coef <- as.matrix(summary(samples)$statistics[, 'Mean'][1:6])
+lambda <- as.matrix(summary(samples)$statistics[, 'Mean'])[8]
+
+
+data_matrix <- data.matrix(data_test)[,c(-1)][, c(4,1,3,5,2)]
+data_matrix <- cbind(data_matrix, intercept = 1)
+n <- dim(data_matrix)[1]
+
+
+#coef * data
+res <- t(coef) %*% t(data_matrix)
+res_vec <- as.vector(res)
+
+
+pstar <- 1/pi* atan(-res_vec) + 0.5
+p <- 1- pstar^lambda
+
+#predictions <- rbinom(n, 1, p)
+#predictions <- ifelse(p> loglog_thresh, '1', '0')
+return(p)
+}
+
+
+accuracy_bayes <- function(model_roc, test_df, predict) {
+  
+  #use roc returned by Epi roc function
+  
+  thresh_index <- which.max(rowSums(model_roc$res[, c("sens", "spec")]))
+  
+  recall <- model_roc$res[thresh_index,][1,1]
+  precision <- model_roc$res[thresh_index,][1,3]
+
+  f1_score <- 2*(recall*precision)/(recall+precision)
+  
+  
+  thresh <- roc_bayes$res[thresh_index,][1,5]
+  
+  predict <- ifelse(predict > thresh, '1', '0')
+  
+  acc <- mean(predict == as.character(test_df$y))
+  
+  return(c(acc,precision, recall,f1_score))
+  
+}
+
+pred_test <- predict_bcauchit(samples,data_test)
+
+
+roc_bayes <- Epi::ROC(pred_test, data_test$y, plot= 'sp')
+
+
+thresh_index <- which.max(rowSums(roc_bayes$res[, c("sens",'spec')]))
+
+  
+recall <- roc_bayes$res[thresh_index,][1,1]
+precision <- roc_bayes$res[thresh_index,][1,3]
+
+metrics_bayes <- accuracy_bayes(roc_bayes, data_test, pred_test )
+acc_bayes <- metrics_bayes[1]
+prec_bayes <- metrics_bayes[2]
+recall_bayes<-metrics_bayes[3]
+f1_bayes <- metrics_bayes[4]
+
+```
+
+```{r}
+pred_testb == pred_test
 ```
 
 # Métodos de Reamostragem
