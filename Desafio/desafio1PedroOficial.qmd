@@ -668,7 +668,7 @@ loglog_recall_test <- loglog_res_test[3]
 loglog_thresh <- loglog_res_test[5]
 ```
 
-## Cross Validation
+## Validação Cruzada
 
 Essa seção implementa a validação cruzada para testar o desempenho do modelo loglog em diferentes partições de dados.
 
@@ -1029,6 +1029,9 @@ xgb_data <- function(data){
 
 train_matrix <- xgb_data(data_reg)
 test_matrix <- xgb_data(data_test)
+
+full_matrix <- xgb_data(full_data)
+
 ```
 
 ```{r}
@@ -1040,21 +1043,108 @@ model <- xgboost(data = train_matrix,                    # the data
                  max.depth=50,                           # max depth 
                  nrounds=50,
                  objective = 'binary:logistic',
-                 'eval_metric' = 'error'),
+                 'eval_metric' = 'error',
                  scale_pos_weight = negative_cases/postive_cases) 
 
 pred <- predict(model, test_matrix)
-?xgboost
 
-roc_bayes <- Epi::ROC(pred, data_test$y, plot = 'ROC')
-thresh_index <- which.max(rowSums(roc_bayes$res[, c("sens", "spec")]))
-pred_class <- ifelse(pred >= 0.465176105499268     , '1', '0')
+roc_xgb <- Epi::ROC(pred, data_test$y, plot = 'F')
+thresh_index <- which.max(rowSums(roc_xgb$res[, c("sens", "spec")]))
+thresh <- as.double(rownames(roc_xgb$res[thresh_index,][1]))
+
+pred_class <- ifelse(pred >= thresh, '1', '0')
 
 
 
 confusionMatrix(factor(pred_class),
                 factor(data_test$y),
                 mode = "everything")
+```
+
+## Validação Cruzada
+
+```{r}
+xgb_metrics <- function(model, pred, data_test) {
+  
+  ## xgb model, pred its the prediction from test_text matrix and data_test is the the data in data.frame format
+  
+  roc_xgb <- Epi::ROC(pred, data_test$y, plot = 'F')
+  thresh_index <- which.max(rowSums(roc_xgb$res[, c("sens", "spec")]))
+  thresh <- as.double(rownames(roc_xgb$res[thresh_index,][1]))
+
+  pred_class <- ifelse(pred >= thresh, '1', '0')
+  
+  
+  cf_test <- confusionMatrix(factor(pred_class),
+                factor(data_test$y),
+                mode = "everything")
+  
+  acc_xgb <- cf_test$overall[1]
+
+
+  #f1 score
+  #recall or sensitity/ recall or PPV
+  recall_xgb <- as.double(cf_test$byClass[1])
+  precision_xgb <- as.double(cf_test$byClass[3])
+  
+  f1_xgb <- 2*(recall_xgb*precision_xgb)/(precision_xgb+recall_xgb)
+  
+  metrics <- c(acc_xgb, precision_xgb, recall_xgb,f1_xgb )
+  
+}
+```
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE, include=FALSE}
+
+totalAccuracy <- data.frame(Acc = c(), Precision = c(), Recall = c(), F1 = c())
+cv <- 10
+#cv <- 224
+cvDivider <- floor(nrow(fulldata_rf) / (cv+1))
+#cvDivider <- 50
+
+for (cv in seq(1:cv)) {
+  # assign chunk to data test
+  dataTestIndex <- c((cv * cvDivider):(cv * cvDivider + cvDivider))
+  dataTest <- fulldata_rf[dataTestIndex,]
+
+  # everything else to train
+  dataTrain <- fulldata_rf[-dataTestIndex,]
+  
+  train_matrix <- xgb_data(dataTrain)
+  test_matrix <- xgb_data(dataTest) 
+
+  negative_cases <- sum(data_reg$y == '0')
+  postive_cases <- sum(data_reg$y == '1')
+
+  model <- xgboost(data = train_matrix,                    # the data   
+                 max.depth=50,                           # max depth 
+                 nrounds=50,
+                 objective = 'binary:logistic',
+                 'eval_metric' = 'error',
+                 scale_pos_weight = negative_cases/postive_cases)
+  
+  pred <- predict(model, test_matrix)
+  
+  metrics <- xgb_metrics(model, pred, dataTest)
+  
+
+  to_bind <- data.frame(Acc = c(metrics[1]), Precision = c(metrics[2]), Recall = c(metrics[3]), F1 = c(metrics[4]))
+
+  #  classification error
+  #cv_ac <- postResample(dataTest$Resposta, probs1$max_prob)[[1]]
+  print(paste('Current Recall:',metrics[3],'for CV:',cv))
+  totalAccuracy <- rbind(totalAccuracy, to_bind)
+}
+
+```
+
+```{r}
+mean_metrics_xgb <- summarize_all(totalAccuracy, mean)
+
+xgb_acc_cv <- mean_metrics_xgb[1]
+xgb_f1_cv<-  mean_metrics_xgb[4]
+xgb_precision_cv <- mean_metrics_xgb[2]
+xgb_recall_cv <- mean_metrics_xgb[3]
 ```
 
 # Bayes pt2
