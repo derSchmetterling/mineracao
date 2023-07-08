@@ -134,8 +134,12 @@ data <- read.csv2('basetreino.csv', sep = ',')
 
 data_test <- read.csv2('baseteste.csv', sep = ',')
 
+
+full_data <- rbind(data, data_test)
+
 data_test <- data_test %>%
   mutate_at(vars("URBAN", "MEN", "PRIVATE", "y"), as.factor)
+
 
 
 head(data)
@@ -545,7 +549,7 @@ summary(m1_loglog)
 
 ## Binomial model
 glmtoolbox::envelope(m1_loglog)
-Epi::ROC(m1_loglog$fitted.values, data$y, plot= "ROC")
+Epi::ROC(m1_loglog$fitted.values, data$y, plot= "F")
 ```
 
 ```{r, warning=FALSE, message=FALSE}
@@ -664,6 +668,52 @@ loglog_recall_test <- loglog_res_test[3]
 loglog_thresh <- loglog_res_test[5]
 ```
 
+## Cross Validation
+
+Essa seção implementa a validação cruzada para testar o desempenho do modelo loglog em diferentes partições de dados.
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE, include=FALSE}
+totalAccuracy <- data.frame(Acc = c(), Precision = c(), Recall = c(), F1 = c())
+cv <- 10
+#cv <- 224
+cvDivider <- floor(nrow(full_data) / (cv+1))
+#cvDivider <- 50
+
+for (cv in seq(1:cv)) {
+  # assign chunk to data test
+  dataTestIndex <- c((cv * cvDivider):(cv * cvDivider + cvDivider))
+  dataTest <- full_data[dataTestIndex,]
+
+  # everything else to train
+  dataTrain <- full_data[-dataTestIndex,]
+
+ m1_loglog_cv <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
+ family = binomial(link = loglog()), data = dataTrain)
+ 
+  y_pred <- predict(m1_loglog_cv,newdata = dataTest, type = 'response')
+ 
+
+  roc_loglog <- Epi::ROC(y_pred, dataTest$y, plot= F)
+
+  metrics <- accuracy(m1_loglog_cv, roc_loglog, dataTest )
+  to_bind <- data.frame(Acc = c(metrics[1]), Precision = c(metrics[2]), Recall = c(metrics[3]), F1 = c(metrics[4]))
+
+  #  classification error
+  #cv_ac <- postResample(dataTest$Resposta, probs1$max_prob)[[1]]
+  print(paste('Current Recall:',metrics[3],'for CV:',cv))
+  totalAccuracy <- rbind(totalAccuracy, to_bind)
+}
+```
+
+```{r}
+mean_metrics <- summarize_all(totalAccuracy, mean)
+
+loglog_acc_cv <- mean_metrics[1]
+loglog_f1_cv<-  mean_metrics[4]
+loglog_precision_cv <- mean_metrics[2]
+loglog_recall_cv <- mean_metrics[3]
+```
+
 # Random Forest
 
 O algoritmo de RandomForest trata-se de uma combinação de árvores de classificação. Os resultados gerados em diferentes árvores são posteriomente agregados em um único, de forma a reduzir a chance de superajuste (overfitting) e aumentar a acurácia.
@@ -702,6 +752,75 @@ recall_forest <- as.double(cf_test$byClass[1])
 precision_forest <- as.double(cf_test$byClass[3])
 
 f1_forest <- 2*(recall_forest*precision_forest)/(precision_forest+recall_forest)
+```
+
+## Validação Cruzada
+
+```{r}
+
+metrics_rf <- function(model, data_test) {
+
+p2 <- predict(rf, data_test)
+cf_test <- caret::confusionMatrix(p2, data_test$y)
+cf_test
+acc_rf <- cf_test$overall[1]
+
+
+#f1 score
+#recall or sensitity/ recall or PPV
+recall_forest <- as.double(cf_test$byClass[1])
+precision_forest <- as.double(cf_test$byClass[3])
+
+f1_forest <- 2*(recall_forest*precision_forest)/(precision_forest+recall_forest)
+
+
+metrics <- c(acc_rf, precision_forest, recall_forest,f1_forest )
+
+}
+```
+
+```{r}
+#convert categorical data to factors
+fulldata_rf <- full_data %>% 
+  mutate_at(vars('y', 'MEN', 'PRIVATE','URBAN'), as.factor)
+```
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE, include=FALSE}
+
+totalAccuracy <- data.frame(Acc = c(), Precision = c(), Recall = c(), F1 = c())
+cv <- 10
+#cv <- 224
+cvDivider <- floor(nrow(fulldata_rf) / (cv+1))
+#cvDivider <- 50
+
+for (cv in seq(1:cv)) {
+  # assign chunk to data test
+  dataTestIndex <- c((cv * cvDivider):(cv * cvDivider + cvDivider))
+  dataTest <- fulldata_rf[dataTestIndex,]
+
+  # everything else to train
+  dataTrain <- fulldata_rf[-dataTestIndex,]
+
+  rf <- randomForest(y~., data=dataTrain, proximity=TRUE, mtry = 2)
+ 
+  metrics <- metrics_rf(rf, dataTest)
+  
+  to_bind <- data.frame(Acc = c(metrics[1]), Precision = c(metrics[2]), Recall = c(metrics[3]), F1 = c(metrics[4]))
+
+  #  classification error
+  #cv_ac <- postResample(dataTest$Resposta, probs1$max_prob)[[1]]
+  print(paste('Current Recall:',metrics[3],'for CV:',cv))
+  totalAccuracy <- rbind(totalAccuracy, to_bind)
+}
+```
+
+```{r}
+mean_metrics_rf <- summarize_all(totalAccuracy, mean)
+
+rf_acc_cv <- mean_metrics_rf[1]
+rf_f1_cv<-  mean_metrics_rf[4]
+rf_precision_cv <- mean_metrics_rf[2]
+rf_recall_cv <- mean_metrics_rf[3]
 ```
 
 Também olhamos para a importância das covariáveis na classificação usando o Decréscimo Médio no Índice de Gini e vemos que a idade (AGE) e tempo de carteira (SENIORITY) parecem serem os fatores mais determinantes para um indivíduo adquirir o seguro completo.
