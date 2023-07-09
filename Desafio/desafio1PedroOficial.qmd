@@ -3,7 +3,7 @@ title: "Desafio"
 subtitle: "Predizendo probabilidade de adquirir seguro completo para automóveis"
 author: Pedro Vinícius Alves Silva - 10727865
 format:
-  pdf:
+  html:
     embed-resources: true
     fontsize: 15pt
     theme: sandstone
@@ -135,8 +135,6 @@ data <- read.csv2('basetreino.csv', sep = ',')
 data_test <- read.csv2('baseteste.csv', sep = ',')
 
 
-full_data <- rbind(data, data_test)
-
 data_test <- data_test %>%
   mutate_at(vars("URBAN", "MEN", "PRIVATE", "y"), as.factor)
 
@@ -198,6 +196,8 @@ inconsist2
 todel_index <-which(data_test$AGE < 18)
 data_test <- data_test[-c(todel_index),]
 
+
+full_data <-  rbind(data, data_test)
 ```
 
 ## Correlações
@@ -210,7 +210,7 @@ Aplicamos a correlação de Pearson para identificar correlação linear entre v
 
 ```{r}
 numeric <- c("AGE", "SENIORITY")
-df_pearson<- data[, numeric]
+df_pearson<- full_data[, numeric]
 
 
 
@@ -230,6 +230,10 @@ Calculamos também o coeficiente de Spearman para identificar correlações mono
 ```{r, tidy = TRUE}
 #| warning: false
 numeric <- c("AGE", "SENIORITY", "y", "MEN", "URBAN", "PRIVATE")
+
+numeric_full <- full_data %>% 
+  mutate_at(vars(numeric), as.integer)
+
 df_spearman<- data[, numeric]
 
 
@@ -251,13 +255,13 @@ A seguir verificamos a distribuição dos dados na base de treino. Inicialmente,
 #| warning: false
 library(lares)
 
-freqs_df(data, plot = T)
+freqs_df(full_data, plot = T)
 ```
 
 Abaixo, temos um resumo quantitativo dos dados. A parte das variávies binárias, notamos que os indivíduos da base de treino tem em média 45 anos e 10 anos de carta de motorista.
 
 ```{r}
-summary(data)
+summary(full_data)
 ```
 
 ## Distribuição do Seguro por Covariáveis
@@ -272,7 +276,7 @@ Como apresentado abaixo, a grande maioria dos dados são referentes a homens que
 
 
 
-hist_men <- ggplot(data %>% count(y, MEN) %>%    
+hist_men <- ggplot(full_data %>% count(y, MEN) %>%    
          mutate(pct=n/sum(n)),
        aes(as.factor(y), n, fill=as.factor(MEN))) +
   geom_bar(stat="identity") +
@@ -287,8 +291,8 @@ hist_men
 Notamos também que a maioria dos dados são referentes a indivíduos que não possuem cobertura completa do seguro, tal desbalanceio pode dificultar a modelagem do problema.
 
 ```{r}
-print(paste('Indíviduos sem cobertura completa',nrow(filter(data, y == '0'))))
-print(paste('Indíviduos com cobertura completa',nrow(filter(data, y == '1'))))
+print(paste('Indíviduos sem cobertura completa',nrow(filter(full_data, y == '0'))))
+print(paste('Indíviduos com cobertura completa',nrow(filter(full_data, y == '1'))))
 ```
 
 ### Seguro vs região onde dirige (URBAN)
@@ -296,7 +300,7 @@ print(paste('Indíviduos com cobertura completa',nrow(filter(data, y == '1'))))
 A maior parte dos indivíduos dirigem em áreas rurais e não adquiriram o seguro completo. Também não notamos diferenças significativas entre a proporção de indivíduos com seguro completo que dirigem na área urbana, porém a maior parte dos indivíduos que dirigem na área rural não adquiriram seguro completo.
 
 ```{r}
-hist_urban<- ggplot(data %>% count(y, URBAN) %>%    
+hist_urban<- ggplot(full_data %>% count(y, URBAN) %>%    
          mutate(pct=n/sum(n)),
        aes(as.factor(y), n, fill=as.factor(URBAN))) +
   geom_bar(stat="identity") +
@@ -313,7 +317,7 @@ hist_urban
 Já para o tipo de uso do veículo, temos que 64.3% dos dados da amostra são de indivíduos que utilizam automóveis privativamente e não adquiriram o seguro completo. Nota-se também que apenas 0.9% dos dados referem-se a indivíduos que possuem veículos para uso comercial e todos eles não adquiriram seguro completo.
 
 ```{r}
-hist_private<- ggplot(data %>% count(y, PRIVATE) %>%    
+hist_private<- ggplot(full_data %>% count(y, PRIVATE) %>%    
          mutate(pct=n/sum(n)),
        aes(as.factor(y), n, fill=as.factor(PRIVATE))) +
   geom_bar(stat="identity") +
@@ -327,7 +331,7 @@ hist_private
 Se filtrarmos os indivíduos que usam veículos de forma comercial, também vemos que todos são do sexo masculino e não adquiriram o seguro completo.
 
 ```{r}
-df <- data %>% 
+df <- full_data %>% 
   filter(PRIVATE == 0)
 df
 ```
@@ -337,28 +341,28 @@ df
 Avaliando a idade em relação as variáveis binárias, vemos que indivíduos que adquirem o seguro completo ou dirigem em área urbana tem em média uma menor idade. Por outro lado, indivíduos que fazem uso privado do automóvel ou são do sexo masculino são mais velhos que seus contrapontos.
 
 ```{r}
-p1 <- ggplot(data, aes(x=as.factor(y), y=AGE)) + 
+p1 <- ggplot(full_data, aes(x=as.factor(y), y=AGE)) + 
   geom_boxplot(notch=FALSE, fill = "#1B9E77", color = 'black') +
   scale_x_discrete(labels = c('Sem seguro', 'Seguro Completo'))+
   labs(title = 'Idade por Seguro',
        x = 'Seguro',
        y = 'Idade')
 
-p2 <- ggplot(data, aes(x=as.factor(URBAN), y=AGE)) + 
+p2 <- ggplot(full_data, aes(x=as.factor(URBAN), y=AGE)) + 
   geom_boxplot(notch=FALSE,fill = "#D95F02", color = 'black') +
     scale_x_discrete(labels = c('Área Rural', 'Área Urbana'))+ 
   labs(title = 'Idade por Região de Condução',
        x = 'Região de Condução',
        y = 'Idade')
 
-p3 <- ggplot(data, aes(x=as.factor(PRIVATE), y=AGE)) + 
+p3 <- ggplot(full_data, aes(x=as.factor(PRIVATE), y=AGE)) + 
   geom_boxplot(notch=FALSE,fill = "#7570B3", color = 'black') +
     scale_x_discrete(labels = c('Uso Comercial', 'Uso Privado'))+
   labs(title = 'Idade por Uso do Automóvel',
        x = 'Uso do Automóvel',
        y = 'Idade')
 
-p4 <- ggplot(data, aes(x=as.factor(MEN), y=AGE, color = as.factor(y))) + 
+p4 <- ggplot(full_data, aes(x=as.factor(MEN), y=AGE, color = as.factor(y))) + 
   geom_boxplot(notch=FALSE,fill = "#E7298A", color = 'black') +
     scale_x_discrete(labels = c('Feminino', 'Masculino'))+
   labs(title = 'Idade por Sexo',
@@ -374,28 +378,28 @@ p4 <- ggplot(data, aes(x=as.factor(MEN), y=AGE, color = as.factor(y))) +
 Para o tempo de carteira, notamos que indivíduos que não possuem seguro completo ou que fazem uso comercial do automóvel ou que sejam do sexo feminino, são em média mais novos do que seus opostos. Já indivíduos que dirigem pela área rural, parecem ter uma leve tendência a serem mais velhos do que indivíduos que dirigem na área urbana.
 
 ```{r}
-p1 <- ggplot(data, aes(x=as.factor(y), y=SENIORITY)) + 
+p1 <- ggplot(full_data, aes(x=as.factor(y), y=SENIORITY)) + 
   geom_boxplot(notch=FALSE, fill = "#666666", color = 'black') +
   scale_x_discrete(labels = c('Sem seguro', 'Seguro Completo'))+
   labs(title = 'Tempo de Carteira por Seguro',
        x = 'Seguro',
        y = 'Tempo de Carteira')
 
-p2 <- ggplot(data, aes(x=as.factor(URBAN), y=SENIORITY)) + 
+p2 <- ggplot(full_data, aes(x=as.factor(URBAN), y=SENIORITY)) + 
   geom_boxplot(notch=FALSE,fill = "#F8766D", color = 'black') +
     scale_x_discrete(labels = c('Área Rural', 'Área Urbana'))+ 
   labs(title = 'Tempo de Carteira por Região de Condução',
        x = 'Região de Condução',
        y = 'Tempo de Carteira')
 
-p3 <- ggplot(data, aes(x=as.factor(PRIVATE), y=SENIORITY)) + 
+p3 <- ggplot(full_data, aes(x=as.factor(PRIVATE), y=SENIORITY)) + 
   geom_boxplot(notch=FALSE,fill = "#00C1A3", color = 'black') +
     scale_x_discrete(labels = c('Uso Comercial', 'Uso Privado'))+
   labs(title = 'Tempo de Carteira por Uso do Automóvel',
        x = 'Uso do Automóvel',
        y = 'Tempo de Carteira')
 
-p4 <- ggplot(data, aes(x=as.factor(MEN), y=SENIORITY)) + 
+p4 <- ggplot(full_data, aes(x=as.factor(MEN), y=SENIORITY)) + 
   geom_boxplot(notch=FALSE,fill = "#35A2FF", color = 'black') +
     scale_x_discrete(labels = c('Feminino', 'Masculino'))+
   labs(title = 'Tempo de Carteira por Sexo',
@@ -405,9 +409,38 @@ p4 <- ggplot(data, aes(x=as.factor(MEN), y=SENIORITY)) +
 (p1|p2)/(p3|p4)
 ```
 
+```{r}
+library(patchwork)
+scatter_age <- ggplot(full_data, aes(y=y,
+                x=log(AGE), color = as.factor(MEN)), pch = 21) +
+geom_point(position="identity", alpha=0.5) +
+ylab("Seguro") +
+xlab("Idade") +
+ggtitle("Distribuição das idades") + 
+scale_color_manual(guide_legend(title="Sexo"), values =  c("#D95F02", "#1B9E77"), labels = c("Feminino", "Masculino"))
+
+scatter_urban <- ggplot(full_data, aes(y=y,
+                x=AGE**2, color = as.factor(URBAN)), pch = 21) +
+geom_point(position="identity", alpha=0.5) +
+ylab("Seguro") +
+xlab("Idade") +
+ggtitle("Distribuição das idades") + 
+scale_color_manual(guide_legend(title="Região"), values = c("#66A61E", "#666666"), labels = c("Não Urbano","Urbano")) 
+
+# scatter_private<- ggplot(full_data, aes(y=y,
+#                 x=AGE, color = as.factor(PRIVATE)), pch = 21) +
+# geom_point(position="identity", alpha=0.5) +
+# ylab("Seguro") +
+# xlab("Idade") +
+# ggtitle("Distribuição das idades") + 
+# scale_color_manual(guide_legend(title="Privado"), values = c("#7570B3", "#E7298A"), labels = c("Não Privado","Privado"))
+patch_g3g4 <- scatter_age/scatter_urban
+patch_g3g4
+```
+
 # Modelos Lineares Generalizados (Clássicos)
 
-Nessa seção, temos o objetivo de ajustar o melhor modelo para predizer, dado as informações do indivíduo, se ele possui ou não cobertura completa do seguro.
+Nessa seção, temos o objetivo de ajustar o melhor modelo para predizer, dado as informações do indivíduo, se ele possui ou não cobertura completa do seguro. Usamos a divisão de treino e teste para validar o melhor modelo e aplicamos valição cruzada para testar seu desempenho.
 
 ```{r}
 data_reg <- data %>%
@@ -460,6 +493,8 @@ Epi::ROC(m1_logit$fitted.values, data$y, plot= "ROC")
 Ao utlizar a função de ligação probito, temos um modelo também sem indícios de mau ajuste e com área sob a curva também de 0.785.
 
 ```{r, message=FALSE, results='hide', fig.keep='all', echo=FALSE}
+
+library(gamlss)
 m1_probit <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = "probit"), data = data_reg)
 
@@ -679,13 +714,19 @@ cv <- 10
 cvDivider <- floor(nrow(full_data) / (cv+1))
 #cvDivider <- 50
 
+factors <- c("y", "MEN", "URBAN", "PRIVATE")
+
+full_data_loglog <- full_data %>% 
+  mutate_at(vars(factors), as.factor)
+
+
 for (cv in seq(1:cv)) {
   # assign chunk to data test
   dataTestIndex <- c((cv * cvDivider):(cv * cvDivider + cvDivider))
-  dataTest <- full_data[dataTestIndex,]
+  dataTest <- full_data_loglog[dataTestIndex,]
 
   # everything else to train
-  dataTrain <- full_data[-dataTestIndex,]
+  dataTrain <- full_data_loglog[-dataTestIndex,]
 
  m1_loglog_cv <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
  family = binomial(link = loglog()), data = dataTrain)
@@ -836,7 +877,7 @@ varImpPlot(rf,
 importance(rf)
 ```
 
-# Soluções Bayesianas
+#  Soluções Bayesianas
 
 ## Modelo Cauchit
 
@@ -907,7 +948,7 @@ jagsData <- list(N = N, y = data_scaled$y,
 #| echo: false
 m1_blogit <- jags(data=jagsData,model.file='models/m1_cauchit.bug',
                    param=c('beta0','beta_urban', 'beta_sen', 'beta_age', 'beta_men', 'lambda'),
-                   n.chains=2, n.iter=10000, n.burnin=3000, n.thin=10)
+                   n.chains=2, n.iter=15000, n.burnin=5000, n.thin=10)
 ```
 
 Analisamos os diagnósticos de convergência e não encontramos nenhum indicativo de não convergência. Apresentamos também os gráfico das posteriores dos parâmetros:
@@ -975,10 +1016,10 @@ accuracy_bayes <- function(model_roc, test_df, predict) {
   
 }
 
-pred_testb <- predict_bcauchit(samples,data_test)
+pred_test <- predict_bcauchit(samples,data_test)
 
 
-roc_bayes <- Epi::ROC(pred_testb, data_test$y, plot= F)
+roc_bayes <- Epi::ROC(pred_test, data_test$y, plot= F)
 
 
 thresh_index <- which.max(rowSums(roc_bayes$res[, c("sens", "spec")]))
@@ -1175,125 +1216,98 @@ writeLines(modelString, con='models/m1_cauchit2.bug')
 ```
 
 ```{r}
-data_scaled = data
-data_scaled$AGE <- as.numeric(scale(data_scaled$AGE))
-data_scaled$SENIORITY <- as.numeric(scale(data_scaled$SENIORITY))
-
-N = nrow(data_scaled)
-jagsData <- list(N = N, y = data_scaled$y,
-    URBAN = data_scaled$URBAN, SEN = data_scaled$SENIORITY,AGE = data_scaled$AGE, MEN = data_scaled$MEN, PRIVATE = data_scaled$PRIVATE)
+# data_scaled = data
+# data_scaled$AGE <- as.numeric(scale(data_scaled$AGE))
+# data_scaled$SENIORITY <- as.numeric(scale(data_scaled$SENIORITY))
+# 
+# N = nrow(data_scaled)
+# jagsData <- list(N = N, y = data_scaled$y,
+#     URBAN = data_scaled$URBAN, SEN = data_scaled$SENIORITY,AGE = data_scaled$AGE, MEN = data_scaled$MEN, PRIVATE = data_scaled$PRIVATE)
 ```
 
 ```{r, echo=FALSE, message=FALSE}
 #| echo: false
-m1_blogit <- jags(data=jagsData,model.file='models/m1_cauchit2.bug',
-                   param=c('beta0','beta_urban', 'beta_sen', 'beta_age', 'beta_men', 'beta_private', 'lambda'),
-                   n.chains=2, n.iter=10000, n.burnin=3000, n.thin=10)
+# m1_blogit <- jags(data=jagsData,model.file='models/m1_cauchit2.bug',
+#                    param=c('beta0','beta_urban', 'beta_sen', 'beta_age', 'beta_men', 'beta_private', 'lambda'),
+#                    n.chains=2, n.iter=15000, n.burnin=5000, n.thin=10)
 ```
 
 ```{r}
-samples <- as.mcmc(m1_blogit)
-traceplot(samples)
-densityplot(samples)
+# samples <- as.mcmc(m1_blogit)
+# traceplot(samples)
+# densityplot(samples)
 ```
 
 ```{r}
-summary(samples)$statistics[, 'Mean']
-```
+# #| warning: false
+# 
+# predict_bcauchit <- function(samples, data) {
+# # data deve ser do tipo dataframe
+# 
+# #vetor da média dos coeficientes beta_age/beta_men/beta_sen/beta_urban/beta_private
+# coef <- as.matrix(summary(samples)$statistics[, 'Mean'][1:6])
+# lambda <- as.matrix(summary(samples)$statistics[, 'Mean'])[8]
+# 
+# 
+# data_matrix <- data.matrix(data_test)[,c(-1)][, c(4,1,3,5,2)]
+# data_matrix <- cbind(data_matrix, intercept = 1)
+# n <- dim(data_matrix)[1]
+# 
+# 
+# #coef * data
+# res <- t(coef) %*% t(data_matrix)
+# res_vec <- as.vector(res)
+# 
+# 
+# pstar <- 1/pi* atan(-res_vec) + 0.5
+# p <- 1- pstar^lambda
+# 
+# #predictions <- rbinom(n, 1, p)
+# #predictions <- ifelse(p> loglog_thresh, '1', '0')
+# return(p)
+# }
+# 
+# 
+# accuracy_bayes <- function(model_roc, test_df, predict) {
+#   
+#   #use roc returned by Epi roc function
+#   
+#   thresh_index <- which.max(rowSums(model_roc$res[, c("sens", "spec")]))
+#   
+#   recall <- model_roc$res[thresh_index,][1,1]
+#   precision <- model_roc$res[thresh_index,][1,3]
+# 
+#   f1_score <- 2*(recall*precision)/(recall+precision)
+#   
+#   
+#   thresh <- roc_bayes$res[thresh_index,][1,5]
+#   
+#   predict <- ifelse(predict > thresh, '1', '0')
+#   
+#   acc <- mean(predict == as.character(test_df$y))
+#   
+#   return(c(acc,precision, recall,f1_score))
+#   
+# }
+# 
+# pred_test <- predict_bcauchit(samples,data_test)
+# 
+# 
+# roc_bayes <- Epi::ROC(pred_test, data_test$y, plot= 'sp')
+# 
+# 
+# thresh_index <- which.max(rowSums(roc_bayes$res[, c("sens",'spec')]))
+# 
+#   
+# recall <- roc_bayes$res[thresh_index,][1,1]
+# precision <- roc_bayes$res[thresh_index,][1,3]
+# 
+# metrics_bayes <- accuracy_bayes(roc_bayes, data_test, pred_test )
+# acc_bayes_2 <- metrics_bayes[1]
+# prec_bayes_2 <- metrics_bayes[2]
+# recall_bayes_2<-metrics_bayes[3]
+# f1_bayes_2 <- metrics_bayes[4]
 
-```{r}
-coef <- as.matrix(summary(samples)$statistics[, 'Mean'][1:6])
-lambda <- as.matrix(summary(samples)$statistics[, 'Mean'])[8]
-
-
-data_matrix <- data.matrix(data_test)[,c(-1)][, c(4,1,3,5,2)]
-data_matrix <- cbind(data_matrix, intercept = 1)
-n <- dim(data_matrix)[1]
-
-
-#coef * data
-res <- t(coef) %*% t(data_matrix)
-res_vec <- as.vector(res)
-
-
-pstar <- 1/pi* atan(-res_vec) + 0.5
-p <- 1- pstar^lambda
-```
-
-```{r}
-#| warning: false
-
-predict_bcauchit <- function(samples, data) {
-# data deve ser do tipo dataframe
-
-#vetor da média dos coeficientes beta_age/beta_men/beta_sen/beta_urban/beta_private
-coef <- as.matrix(summary(samples)$statistics[, 'Mean'][1:6])
-lambda <- as.matrix(summary(samples)$statistics[, 'Mean'])[8]
-
-
-data_matrix <- data.matrix(data_test)[,c(-1)][, c(4,1,3,5,2)]
-data_matrix <- cbind(data_matrix, intercept = 1)
-n <- dim(data_matrix)[1]
-
-
-#coef * data
-res <- t(coef) %*% t(data_matrix)
-res_vec <- as.vector(res)
-
-
-pstar <- 1/pi* atan(-res_vec) + 0.5
-p <- 1- pstar^lambda
-
-#predictions <- rbinom(n, 1, p)
-#predictions <- ifelse(p> loglog_thresh, '1', '0')
-return(p)
-}
-
-
-accuracy_bayes <- function(model_roc, test_df, predict) {
-  
-  #use roc returned by Epi roc function
-  
-  thresh_index <- which.max(rowSums(model_roc$res[, c("sens", "spec")]))
-  
-  recall <- model_roc$res[thresh_index,][1,1]
-  precision <- model_roc$res[thresh_index,][1,3]
-
-  f1_score <- 2*(recall*precision)/(recall+precision)
-  
-  
-  thresh <- roc_bayes$res[thresh_index,][1,5]
-  
-  predict <- ifelse(predict > thresh, '1', '0')
-  
-  acc <- mean(predict == as.character(test_df$y))
-  
-  return(c(acc,precision, recall,f1_score))
-  
-}
-
-pred_test <- predict_bcauchit(samples,data_test)
-
-
-roc_bayes <- Epi::ROC(pred_test, data_test$y, plot= 'sp')
-
-
-thresh_index <- which.max(rowSums(roc_bayes$res[, c("sens",'spec')]))
-
-  
-recall <- roc_bayes$res[thresh_index,][1,1]
-precision <- roc_bayes$res[thresh_index,][1,3]
-
-metrics_bayes <- accuracy_bayes(roc_bayes, data_test, pred_test )
-acc_bayes <- metrics_bayes[1]
-prec_bayes <- metrics_bayes[2]
-recall_bayes<-metrics_bayes[3]
-f1_bayes <- metrics_bayes[4]
-
-```
-
-```{r}
-pred_testb == pred_test
 ```
 
 # Métodos de Reamostragem
@@ -1301,15 +1315,11 @@ pred_testb == pred_test
 Para lidar com o desbalanceamento entre as classes da variável resposta, aplicaremos o método SMOTE na base de dados de treino.
 
 ```{r}
-data_reg
-```
-
-```{r}
 library(UBL)
 
-over_train <- SmoteClassif(y ~ MEN + URBAN+ AGE + SENIORITY, data_reg, k = 5, C.perc = list('1' = 1.75,'0' =1), repl = FALSE,
-dist = "HEOM", p = 2)
+over_train <- SmoteClassif(y ~ MEN + URBAN+ AGE + SENIORITY, fulldata_rf, k = 5, C.perc = list('1' = 2,'0' =1), repl = FALSE,dist = "HEOM", p = 2)
 
+over_train <- over_train[sample(nrow(over_train)),]
 
 ```
 
@@ -1334,16 +1344,58 @@ over_loglog <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
 summary(over_loglog)
 ```
 
-```{r}
-y_pred <- predict(over_loglog,newdata = data_test, type = 'response')
-roc_logit <- Epi::ROC(y_pred, data_test$y, plot= T)
+```{r, message=FALSE, warning=FALSE, echo=FALSE, include=FALSE}
+totalAccuracy <- data.frame(Acc = c(), Precision = c(), Recall = c(), F1 = c())
+cv <- 10
+#cv <- 224
+cvDivider <- floor(nrow(over_train) / (cv+1))
+#cvDivider <- 50
 
-logitr_res_test <- accuracy(over_loglog, roc_logit, data_test )
-logitr_acc_test <- logitr_res_test[1]
-logitr_f1_test<-  logitr_res_test[4]
-logitr_precision_test <- logitr_res_test[2]
-logitr_recall_test <- logitr_res_test[3]
-logitr_thresh <- logitr_res_test[5]
+for (cv in seq(1:cv)) {
+  # assign chunk to data test
+  dataTestIndex <- c((cv * cvDivider):(cv * cvDivider + cvDivider))
+  dataTest <- over_train[dataTestIndex,]
+
+  # everything else to train
+  dataTrain <- over_train[-dataTestIndex,]
+
+ over_loglog <- glm(formula = y ~  URBAN + SENIORITY+ AGE + MEN,
+ family = binomial(link = loglog()), data = dataTrain)
+ 
+  y_pred <- predict(over_loglog,newdata = dataTest, type = 'response')
+ 
+
+  roc_loglog <- Epi::ROC(y_pred, dataTest$y, plot= F)
+
+  metrics <- accuracy(over_loglog, roc_loglog, dataTest )
+  to_bind <- data.frame(Acc = c(metrics[1]), Precision = c(metrics[2]), Recall = c(metrics[3]), F1 = c(metrics[4]))
+
+  #  classification error
+  #cv_ac <- postResample(dataTest$Resposta, probs1$max_prob)[[1]]
+  print(paste('Current Recall:',metrics[3],'for CV:',cv))
+  totalAccuracy <- rbind(totalAccuracy, to_bind)
+}
+```
+
+```{r}
+mean_loglog_smote <- summarize_all(totalAccuracy, mean)
+
+loglog_acc_smote <- mean_loglog_smote[1]
+loglog_f1_smote<-  mean_loglog_smote[4]
+loglog_precision_smote <- mean_loglog_smote[2]
+loglog_recall_smote <- mean_loglog_smote[3]
+```
+
+```{r}
+# y_pred <- predict(over_loglog,newdata = data_test, type = 'response')
+# roc_logit <- Epi::ROC(y_pred, data_test$y, plot= T)
+# 
+# logitr_res_test <- accuracy(over_loglog, roc_logit, data_test )
+# logitr_acc_test <- logitr_res_test[1]
+# logitr_f1_test<-  logitr_res_test[4]
+# logitr_precision_test <- logitr_res_test[2]
+# logitr_recall_test <- logitr_res_test[3]
+# logitr_thresh <- logitr_res_test[5]
 ```
 
 ### Random Forest
@@ -1353,19 +1405,112 @@ rf <- randomForest(y~., data=over_train, proximity=TRUE, mtry = 2)
 print(rf)
 ```
 
+```{r, message=FALSE, warning=FALSE, echo=FALSE, include=FALSE}
+
+totalAccuracy <- data.frame(Acc = c(), Precision = c(), Recall = c(), F1 = c())
+cv <- 10
+#cv <- 224
+cvDivider <- floor(nrow(over_train) / (cv+1))
+#cvDivider <- 50
+
+for (cv in seq(1:cv)) {
+  # assign chunk to data test
+  dataTestIndex <- c((cv * cvDivider):(cv * cvDivider + cvDivider))
+  dataTest <- over_train[dataTestIndex,]
+
+  # everything else to train
+  dataTrain <- over_train[-dataTestIndex,]
+
+  rf <- randomForest(y~., data=dataTrain, proximity=TRUE, mtry = 2)
+ 
+  metrics <- metrics_rf(rf, dataTest)
+  
+  to_bind <- data.frame(Acc = c(metrics[1]), Precision = c(metrics[2]), Recall = c(metrics[3]), F1 = c(metrics[4]))
+
+  #  classification error
+  #cv_ac <- postResample(dataTest$Resposta, probs1$max_prob)[[1]]
+  print(paste('Current Recall:',metrics[3],'for CV:',cv))
+  totalAccuracy <- rbind(totalAccuracy, to_bind)
+}
+```
+
 ```{r}
-p2 <- predict(rf, data_test)
-cf_test <- caret::confusionMatrix(p2, data_test$y)
-cf_test
-acc_rf <- cf_test$overall[1]
+mean_rf_smote <- summarize_all(totalAccuracy, mean)
 
+rf_acc_smote <- mean_rf_smote[1]
+rf_f1_smote<-  mean_rf_smote[4]
+rf_precision_smote <- mean_rf_smote[2]
+rf_recall_smote <- mean_rf_smote[3]
+```
 
-#f1 score
-#recall or sensitity/ recall or PPV
-recall_forest <- as.double(cf_test$byClass[1])
-precision_forest <- as.double(cf_test$byClass[3])
+```{r}
+# p2 <- predict(rf, data_test)
+# cf_test <- caret::confusionMatrix(p2, data_test$y)
+# cf_test
+# acc_rf <- cf_test$overall[1]
+# 
+# 
+# #f1 score
+# #recall or sensitity/ recall or PPV
+# recall_forest <- as.double(cf_test$byClass[1])
+# precision_forest <- as.double(cf_test$byClass[3])
+# 
+# f1_forest <- 2*(recall_forest*precision_forest)/(precision_forest+recall_forest)
+```
 
-f1_forest <- 2*(recall_forest*precision_forest)/(precision_forest+recall_forest)
+### XGBoost
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE, include=FALSE}
+
+totalAccuracy <- data.frame(Acc = c(), Precision = c(), Recall = c(), F1 = c())
+cv <- 10
+#cv <- 224
+cvDivider <- floor(nrow(over_train) / (cv+1))
+#cvDivider <- 50
+
+for (cv in seq(1:cv)) {
+  # assign chunk to data test
+  dataTestIndex <- c((cv * cvDivider):(cv * cvDivider + cvDivider))
+  dataTest <- over_train[dataTestIndex,]
+
+  # everything else to train
+  dataTrain <- over_train[-dataTestIndex,]
+  
+  train_matrix <- xgb_data(dataTrain)
+  test_matrix <- xgb_data(dataTest) 
+
+  negative_cases <- sum(dataTrain$y == '0')
+  postive_cases <- sum(dataTrain$y == '1')
+
+  model <- xgboost(data = train_matrix,                    # the data   
+                 max.depth=50,                           # max depth 
+                 nrounds=50,
+                 objective = 'binary:logistic',
+                 'eval_metric' = 'error',
+                 scale_pos_weight = negative_cases/postive_cases)
+  
+  pred <- predict(model, test_matrix)
+  
+  metrics <- xgb_metrics(model, pred, dataTest)
+  
+
+  to_bind <- data.frame(Acc = c(metrics[1]), Precision = c(metrics[2]), Recall = c(metrics[3]), F1 = c(metrics[4]))
+
+  #  classification error
+  #cv_ac <- postResample(dataTest$Resposta, probs1$max_prob)[[1]]
+  print(paste('Current Recall:',metrics[3],'for CV:',cv))
+  totalAccuracy <- rbind(totalAccuracy, to_bind)
+}
+
+```
+
+```{r}
+metrics_xgb_smote <- summarize_all(totalAccuracy, mean)
+
+xgb_acc_smote <- metrics_xgb_smote[1]
+xgb_f1_smote<-  metrics_xgb_smote[4]
+xgb_precision_smote <- metrics_xgb_smote[2]
+xgb_recall_smote <- metrics_xgb_smote[3]
 ```
 
 # Predição no conjunto de teste
@@ -1387,18 +1532,16 @@ Para o caso do seguro, podemos incorrer em erros de falsos positivos(classificar
 
 # Create a data frame with the data
 data <- data.frame(
-  Modelo = c("Modelo loglog", "Modelo loglog Reduzido", "Random Forest", "Cauchit Potência Inversa"),
-  'Acurácia' = round(c(loglog_acc_test, logitr_acc_test, acc_rf, acc_bayes),3),
-  'Precisão' = round(c(loglog_precision_test, logitr_precision_test, precision_forest, prec_bayes),3),
-  'Recall' = round(c(loglog_recall_test, logitr_recall_test, recall_forest, recall_bayes),3),
+  Modelo = c("Modelo loglog", "Loglog SMOTE" ,"Random Forest", "Random Forest SMOTE","XGBoost", "XGBoost SMOTE", "Cauchit Potência Inversa"),
+  'Acurácia' = round(c(loglog_acc_cv[1,1], loglog_acc_smote[1,1], rf_acc_cv[1,1],rf_acc_smote[1,1], xgb_acc_cv[1,1], xgb_acc_smote[1,1],acc_bayes),3),
+  'Precisão' = round(c(loglog_precision_cv[1,1], loglog_precision_smote[1,1],rf_precision_cv[1,1],rf_precision_smote[1,1],xgb_precision_cv[1,1],xgb_precision_smote[1,1], prec_bayes),3),
+  'Recall' = round(c(loglog_recall_cv[1,1],loglog_recall_smote[1,1], rf_recall_cv[1,1],rf_recall_smote[1,1], xgb_recall_cv[1,1],xgb_recall_smote[1,1], recall_bayes),3),
   
- 'F1Score' = round(c(loglog_f1_test, logitr_f1_test, f1_forest, f1_bayes),3)
+ 'F1Score' = round(c(loglog_f1_cv[1,1],loglog_f1_smote[1,1], rf_f1_cv[1,1],rf_f1_smote[1,1], xgb_f1_cv[1,1],xgb_f1_smote[1,1],f1_bayes),3)
 )
 
-
-
-
 data
+
 
 # Create a formattable
 
